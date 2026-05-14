@@ -34,6 +34,8 @@ ELITE = "/home/xx/.local/share/fonts/SpecialElite-Regular.ttf"
 PICKUP = EP_DIR / "working/pickup/pickup_20260507_graded.mp4"
 REFIND = EP_DIR / "working/reunion/02_refind_20260510_2003.mp4"
 PHONE = Path("/mnt/d/downloads/there_is_no_homeless")
+WALGREENS_P1 = PHONE / "VID_20260510_200845459.mp4"     # 5:22, finds John, John starts singing
+WALGREENS_P2 = PHONE / "VID_20260510_200845459_02.mp4"  # continuation; contains n-word ~5:17 (bleep later)
 W, H, FPS = 1920, 1080, 30
 
 
@@ -49,6 +51,9 @@ class Line:
     fade_out: float = 2.4            # slowed ~3x from 0.8
     start: float = 0.0
     duration: float = 8.0            # text holds longer too
+
+
+SKIP_EXISTING = True  # idempotency: don't re-render segments whose mp4 already exists
 
 
 def run(cmd: list[str], *, label: str) -> None:
@@ -95,6 +100,9 @@ def _drawtext_filter(line: Line) -> str:
 
 
 def render_card(lines: list[Line], duration: float, out: Path, label: str) -> None:
+    if SKIP_EXISTING and out.exists():
+        print(f"[card-{label}] skip (exists)", flush=True)
+        return
     chain = ",".join(_drawtext_filter(l) for l in lines)
     vf = f"scale={W}:{H},{chain}"
     cmd = [
@@ -113,8 +121,31 @@ def render_card(lines: list[Line], duration: float, out: Path, label: str) -> No
     run(cmd, label=f"card-{label}")
 
 
+def _mute_filter(ranges: list[tuple[float, float]], source_start: float) -> str | None:
+    """Build a volume=0 filter for the given (start,end) mute windows.
+
+    Ranges are in *source-clip* time; subtract source_start so they map onto
+    the output's timeline.
+    """
+    adjusted = []
+    for s, e in ranges:
+        s2 = s - source_start
+        e2 = e - source_start
+        if e2 <= 0:
+            continue
+        adjusted.append((max(0.0, s2), e2))
+    if not adjusted:
+        return None
+    enable_expr = "+".join(f"between(t\\,{s:.3f}\\,{e:.3f})" for s, e in adjusted)
+    return f"volume=volume=0:enable='{enable_expr}'"
+
+
 def render_vid(src: Path, source_start: float, duration: float | None,
-               handle_lower: str, out: Path) -> None:
+               handle_lower: str, out: Path,
+               mute_ranges: list[tuple[float, float]] | None = None) -> None:
+    if SKIP_EXISTING and out.exists():
+        print(f"[vid-{handle_lower}] skip (exists)", flush=True)
+        return
     handle_line = Line(
         text=handle_lower, font=ELITE, size=36, color="0xdddddd",
         x="40", y="h-80",
@@ -136,6 +167,12 @@ def render_vid(src: Path, source_start: float, duration: float | None,
         "-r", str(FPS),
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24",
         "-preset", "ultrafast",
+    ]
+    if mute_ranges:
+        af = _mute_filter(mute_ranges, source_start)
+        if af:
+            cmd += ["-af", af]
+    cmd += [
         "-c:a", "aac", "-b:a", "192k", "-ac", "2",
         str(out),
     ]
@@ -145,61 +182,80 @@ def render_vid(src: Path, source_start: float, duration: float | None,
 def title_lines() -> list[Line]:
     return [
         Line("THERE IS NO HOMELESS", BEBAS, 140, "white",
-             y="(h-text_h)/2-160", fade_in=0.5, fade_out=1.0, start=1.0, duration=9.0),
+             y="(h-text_h)/2-160", fade_in=2.0, fade_out=2.5, start=1.5, duration=14.0),
         Line("Chapter 1  ·  Street Life", BEBAS, 64, "white",
-             y="640", fade_in=1.0, fade_out=1.0, start=3.0, duration=7.0),
+             y="640", fade_in=2.0, fade_out=2.5, start=5.0, duration=11.0),
         Line("Episode 1  ·  John's Pain", BEBAS, 72, "white",
-             y="720", fade_in=1.0, fade_out=1.0, start=4.0, duration=6.0),
+             y="720", fade_in=2.0, fade_out=2.5, start=7.0, duration=9.0),
     ]
+
+
+def _load_bleeps() -> dict:
+    p = Path(__file__).parent.parent / "bleep_ranges.json"
+    if not p.exists():
+        return {}
+    import json as _json
+    return _json.loads(p.read_text())
 
 
 def main() -> None:
     seg_paths: list[Path] = []
+    bleeps = _load_bleeps()
 
-    # 01a — Title
+    # Per the user's "leave John's fucks" rule:
+    #   - Wiley clip & Hunter politics:  bleep ALL fucks
+    #   - Walgreens p1 (John already speaking by 0:02):  no fuck bleep
+    #   - Walgreens p2 (all John):  no fuck bleep, but n-words muted at very end
+    wiley_mutes  = [tuple(r) for r in bleeps.get("VID_20260508_082801655", {}).get("fuck", [])]
+    hunter_mutes = [tuple(r) for r in bleeps.get("VID_20260508_054433020", {}).get("fuck", [])]
+    walg_p2_mutes = [tuple(r) for r in bleeps.get("VID_20260510_200845459_02", {}).get("n_word", [])]
+
+    # 01a — Title (slower fades per user)
     title = SEGS / "01a_title.mp4"
-    render_card(title_lines(), duration=12.0, out=title, label="title")
+    render_card(title_lines(), duration=18.0, out=title, label="title")
     seg_paths.append(title)
 
-    # 01a2 — Open-source bumper (brief teaser; the full CTA lands in end credits)
+    # 01a2 — Open-source bumper
     osb = SEGS / "01a2_open_source_bumper.mp4"
     render_card([
-        Line("an open source project", ELITE, 70, "0xeeeeee", y="h/2-60", start=0.4, duration=4.0),
-        Line("about an open source community.", ELITE, 70, "0xeeeeee", y="h/2+30", start=1.0, duration=3.6),
-    ], duration=6.0, out=osb, label="opensrc-bumper")
+        Line("an open source project", ELITE, 70, "0xeeeeee", y="h/2-60", start=1.0, duration=9.0),
+        Line("about an open source community.", ELITE, 70, "0xeeeeee", y="h/2+30", start=2.5, duration=8.0),
+    ], duration=12.0, out=osb, label="opensrc-bumper")
     seg_paths.append(osb)
 
     # 01b — Wiley (question card)
     c = SEGS / "01b_wiley_card.mp4"
     render_card([
-        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-260", start=0.2, duration=2.0),
-        Line("Wiley?", BEBAS, 240, "white", y="(h-text_h)/2-40", start=0.8, duration=6.5),
-        Line("I think he said his name was Wiley.", ELITE, 44, "0xcccccc", y="h/2+120", start=2.0, duration=5.5),
-        Line("Or Texas Wiley.  Or maybe Texas.", ELITE, 44, "0xcccccc", y="h/2+180", start=2.5, duration=5.0),
-        Line("Let me know in the comments.", ELITE, 44, "0xaaaaaa", y="h/2+260", start=3.0, duration=4.5),
-    ], duration=8.0, out=c, label="wiley")
+        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-260", start=0.5, duration=4.0),
+        Line("Wiley?", BEBAS, 240, "white", y="(h-text_h)/2-40", start=2.0, duration=12.0),
+        Line("I think he said his name was Wiley.", ELITE, 44, "0xcccccc", y="h/2+120", start=4.0, duration=10.0),
+        Line("Or Texas Wiley.  Or maybe Texas.", ELITE, 44, "0xcccccc", y="h/2+180", start=5.5, duration=8.5),
+        Line("Let me know in the comments.", ELITE, 44, "0xaaaaaa", y="h/2+260", start=7.0, duration=7.0),
+    ], duration=15.0, out=c, label="wiley")
     seg_paths.append(c)
     v = SEGS / "01b_wiley_vid.mp4"
-    render_vid(PHONE / "VID_20260508_082801655.mp4", 0.0, None, "wiley?", v)
+    render_vid(PHONE / "VID_20260508_082801655.mp4", 0.0, None, "wiley?", v,
+               mute_ranges=wiley_mutes)
     seg_paths.append(v)
 
     # 01c — Hunter
     c = SEGS / "01c_hunter_card.mp4"
     render_card([
-        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-160", start=0.2, duration=1.0),
-        Line("hunter", BEBAS, 240, "white", y="(h-text_h)/2", start=1.0, duration=4.0),
-    ], duration=5.0, out=c, label="hunter")
+        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-160", start=0.5, duration=4.0),
+        Line("hunter", BEBAS, 240, "white", y="(h-text_h)/2", start=2.0, duration=8.0),
+    ], duration=10.0, out=c, label="hunter")
     seg_paths.append(c)
     v = SEGS / "01c_hunter_vid.mp4"
-    render_vid(PHONE / "VID_20260508_054433020.mp4", 0.0, None, "hunter", v)
+    render_vid(PHONE / "VID_20260508_054433020.mp4", 0.0, None, "hunter", v,
+               mute_ranges=hunter_mutes)
     seg_paths.append(v)
 
     # 01d — T.K.
     c = SEGS / "01d_tk_card.mp4"
     render_card([
-        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-160", start=0.2, duration=1.0),
-        Line("t.k.", BEBAS, 240, "white", y="(h-text_h)/2", start=1.0, duration=4.0),
-    ], duration=5.0, out=c, label="tk")
+        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-160", start=0.5, duration=4.0),
+        Line("t.k.", BEBAS, 240, "white", y="(h-text_h)/2", start=2.0, duration=8.0),
+    ], duration=10.0, out=c, label="tk")
     seg_paths.append(c)
     v = SEGS / "01d_tk_vid.mp4"
     render_vid(PHONE / "VID_20260510_191046988.mp4", 0.0, None, "t.k.", v)
@@ -208,9 +264,9 @@ def main() -> None:
     # 01d2 — Obi-Wan (40s of the cowboy-hat guitar clip — verified Obie footage)
     c = SEGS / "01d2_obi_card.mp4"
     render_card([
-        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-160", start=0.2, duration=1.0),
-        Line("obi-wan", BEBAS, 240, "white", y="(h-text_h)/2", start=1.0, duration=4.0),
-    ], duration=5.0, out=c, label="obi")
+        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-160", start=0.5, duration=4.0),
+        Line("obi-wan", BEBAS, 240, "white", y="(h-text_h)/2", start=2.0, duration=8.0),
+    ], duration=10.0, out=c, label="obi")
     seg_paths.append(c)
     v = SEGS / "01d2_obi_vid.mp4"
     render_vid(PHONE / "VID_20260501_004914722.mp4", 0.0, None, "obi-wan", v)
@@ -219,36 +275,51 @@ def main() -> None:
     # 01e — Busta (big) + John (small) + backstory + pickup
     c = SEGS / "01e_busta_card.mp4"
     render_card([
-        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-340", start=0.2, duration=1.5),
-        Line("BUSTA", BEBAS, 320, "white", y="(h-text_h)/2-120", start=0.8, duration=10.0),
-        Line("…and the guy with the dog.", ELITE, 56, "0xcccccc", y="h/2+100", start=2.0, duration=9.0),
-        Line("John puts his dog ahead of himself.  Busta eats first.", ELITE, 38, "0xbbbbbb", y="h/2+200", start=3.5, duration=7.5),
-        Line("Busta barks short notes in time while John plays.", ELITE, 36, "0xbbbbbb", y="h/2+260", start=4.5, duration=6.5),
-        Line("Someone once said, \"That dog is bustin' rhymes.\"", ELITE, 36, "0xbbbbbb", y="h/2+320", start=5.5, duration=5.5),
-        Line("The name stuck.  Busta Rhymes.", ELITE, 40, "0xeeeeee", y="h/2+390", start=6.5, duration=4.5),
-    ], duration=11.5, out=c, label="busta")
+        Line("introducing!", ELITE, 80, "0xcccccc", y="h/2-340", start=0.5, duration=4.5),
+        Line("BUSTA", BEBAS, 320, "white", y="(h-text_h)/2-120", start=2.0, duration=20.0),
+        Line("…and the guy with the dog.", ELITE, 56, "0xcccccc", y="h/2+100", start=5.0, duration=17.0),
+        Line("John puts his dog ahead of himself.  Busta eats first.", ELITE, 38, "0xbbbbbb", y="h/2+200", start=8.0, duration=14.0),
+        Line("Busta barks short notes in time while John plays.", ELITE, 36, "0xbbbbbb", y="h/2+260", start=10.5, duration=11.5),
+        Line("Someone once said, \"That dog is bustin' rhymes.\"", ELITE, 36, "0xbbbbbb", y="h/2+320", start=13.0, duration=9.0),
+        Line("The name stuck.  Busta Rhymes.", ELITE, 40, "0xeeeeee", y="h/2+390", start=15.5, duration=6.5),
+    ], duration=22.0, out=c, label="busta")
     seg_paths.append(c)
     pickup_intro = SEGS / "01e_pickup_intro_card.mp4"
     render_card([
-        Line("John has had a skin disease for a couple weeks.", ELITE, 50, "0xdddddd", y="h/2-120", start=0.5, duration=5.5),
-        Line("It was getting debilitating.  I told him to go to the hospital.", ELITE, 50, "0xdddddd", y="h/2-40", start=1.5, duration=5.0),
-        Line("Here I am picking him up after he was released.", ELITE, 50, "0xdddddd", y="h/2+60", start=2.5, duration=4.5),
-        Line("(maybe after only a day.)", ELITE, 38, "0xaaaaaa", y="h/2+140", start=3.5, duration=3.5),
-    ], duration=7.5, out=pickup_intro, label="pickup-intro")
+        Line("John has had a skin disease for a couple weeks.", ELITE, 50, "0xdddddd", y="h/2-120", start=1.0, duration=12.0),
+        Line("It was getting debilitating.  I told him to go to the hospital.", ELITE, 50, "0xdddddd", y="h/2-40", start=3.0, duration=11.0),
+        Line("Here I am picking him up after he was released.", ELITE, 50, "0xdddddd", y="h/2+60", start=5.5, duration=9.0),
+        Line("(maybe after only a day.)", ELITE, 38, "0xaaaaaa", y="h/2+140", start=8.0, duration=6.5),
+    ], duration=15.0, out=pickup_intro, label="pickup-intro")
     seg_paths.append(pickup_intro)
     v = SEGS / "01e_pickup_vid.mp4"
     render_vid(PICKUP, 0.0, None, "the guy with the dog  ·  may 7", v)
     seg_paths.append(v)
 
-    # 01f — The next day...
+    # 01f — "The next day..." → refind (search for John on May 10)
     c = SEGS / "01f_nextday_card.mp4"
     render_card([
-        Line("the next day…", ELITE, 110, "white", y="(h-text_h)/2", start=0.5, duration=4.5),
-    ], duration=5.5, out=c, label="nextday")
+        Line("the next day…", ELITE, 110, "white", y="(h-text_h)/2", start=1.0, duration=9.0),
+    ], duration=11.0, out=c, label="nextday")
     seg_paths.append(c)
     v = SEGS / "01f_refind_vid.mp4"
     render_vid(REFIND, 0.0, None, "the guy with the dog  ·  may 10", v)
     seg_paths.append(v)
+
+    # 01g — John finally texted: at Walgreens (find moment)
+    c = SEGS / "01g_walgreens_intro_card.mp4"
+    render_card([
+        Line("John finally texted:", ELITE, 70, "0xeeeeee", y="h/2-120", start=1.0, duration=10.0),
+        Line("\"I'm a f-ing idiot.  I'm at Walgreens not CVS.\"", ELITE, 60, "white", y="h/2", start=3.0, duration=10.0),
+    ], duration=13.0, out=c, label="walgreens-intro")
+    seg_paths.append(c)
+    v1 = SEGS / "01g_walgreens_p1_vid.mp4"
+    render_vid(WALGREENS_P1, 0.0, None, "the guy with the dog  ·  may 10  ·  walgreens", v1)
+    seg_paths.append(v1)
+    v2 = SEGS / "01g_walgreens_p2_vid.mp4"
+    render_vid(WALGREENS_P2, 0.0, None, "the guy with the dog  ·  may 10  ·  walgreens (cont.)", v2,
+               mute_ranges=walg_p2_mutes)
+    seg_paths.append(v2)
 
     # Concat
     list_file = V7 / "cold_open_concat.txt"
