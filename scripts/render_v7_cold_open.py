@@ -129,7 +129,7 @@ def render_card(lines: list[Line], duration: float, out: Path, label: str) -> No
 
 
 def _mute_filter(ranges: list[tuple[float, float]], source_start: float,
-                 fade: float = 0.08) -> str | None:
+                 fade: float = 0.18) -> str | None:
     """Build a chain of volume filters that gently fade audio to 0 around each
     bleep window, instead of a hard cut.
 
@@ -161,7 +161,8 @@ def _mute_filter(ranges: list[tuple[float, float]], source_start: float,
 def render_vid(src: Path, source_start: float, duration: float | None,
                handle_lower: str, out: Path,
                mute_ranges: list[tuple[float, float]] | None = None,
-               audio_gain: float = 1.0) -> None:
+               audio_gain: float = 1.0,
+               fade_out_audio: float = 0.0) -> None:
     if SKIP_EXISTING and out.exists():
         print(f"[vid-{handle_lower}] skip (exists)", flush=True)
         return
@@ -194,6 +195,18 @@ def render_vid(src: Path, source_start: float, duration: float | None,
             af_parts.append(af)
     if audio_gain != 1.0:
         af_parts.append(f"volume={audio_gain}")
+    if fade_out_audio > 0:
+        # Probe clip duration so we can fade the last fade_out_audio seconds.
+        clip_dur_r = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(src)],
+            capture_output=True, text=True, check=True,
+        )
+        clip_dur = float(clip_dur_r.stdout.strip()) - source_start
+        if duration is not None:
+            clip_dur = min(clip_dur, duration)
+        fade_start = max(0.0, clip_dur - fade_out_audio)
+        af_parts.append(f"afade=t=out:st={fade_start:.3f}:d={fade_out_audio:.3f}")
     if af_parts:
         cmd += ["-af", ",".join(af_parts)]
     cmd += [
@@ -215,7 +228,8 @@ def title_lines() -> list[Line]:
 
 
 def render_song(audio: Path, title_lines: list[Line], out: Path, label: str,
-                trailing_silence: float = 1.5) -> None:
+                trailing_silence: float = 1.5,
+                fade_in_audio: float = 0.0) -> None:
     """Render a song segment: black 1920x1080 video + audio file + optional
     title overlay lines. Duration matches the audio's length plus a short
     trailing silence so the next segment doesn't slam in."""
@@ -242,6 +256,10 @@ def render_song(audio: Path, title_lines: list[Line], out: Path, label: str,
         "-r", str(FPS),
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24",
         "-preset", "ultrafast",
+    ]
+    if fade_in_audio > 0:
+        cmd += ["-af", f"afade=t=in:st=0:d={fade_in_audio:.3f}"]
+    cmd += [
         "-c:a", "aac", "-b:a", "192k",
         "-t", str(duration),
         str(out),
@@ -389,14 +407,46 @@ def main() -> None:
     seg_paths.append(v1)
     v2 = SEGS / "01g_walgreens_p2_vid.mp4"
     render_vid(WALGREENS_P2, 0.0, None, "the guy with the dog  ·  may 10  ·  walgreens (cont.)", v2,
-               mute_ranges=walg_p2_mutes)
+               mute_ranges=walg_p2_mutes,
+               fade_out_audio=4.0)  # audio fades out over last 4s so Obi music can crossfade in
     seg_paths.append(v2)
 
     # =================== SONGS SECTION ===================
+    # New order per user: Obi tracks crossfade in over Walgreens p2's tail,
+    # then Puddle with credits, then HGB.
 
-    # 02a — Puddle: Mark's spoken-word intro as text + the song with end-credit
-    # reveal scrolling over it (Busta first, then John's real name + name origin).
-    puddle = SEGS / "02a_puddle.mp4"
+    # 02a..02e — Obi tracks (5 songs, v2 versions). The first one fades in to
+    # complete the crossfade-from-Walgreens, with the "Some stuff Ob banged
+    # out last night" caption as the opener label.
+    obi_tracks = sorted(p for p in OBIE_DIR.glob("*v2.mp3"))
+    for i, track in enumerate(obi_tracks, start=1):
+        seg = SEGS / f"02_ob_track{i:02d}.mp4"
+        overlays: list[Line] = []
+        if i == 1:
+            overlays.append(Line(
+                "Some stuff Ob banged out last night.",
+                ELITE, 60, "0xeeeeee", y="h/2-40",
+                start=2.0, fade_in=2.5, fade_out=3.0, duration=14.0,
+            ))
+        if i == 3:
+            overlays.append(Line(
+                "Well, actually it's been a couple days now…",
+                ELITE, 50, "0xdddddd", y="h/4",
+                start=8.0, fade_in=2.0, fade_out=2.5, duration=12.0,
+            ))
+            overlays.append(Line(
+                "Claude Code wasn't as fast an editor as I'd hoped, lol.",
+                ELITE, 46, "0xbbbbbb", y="h/4+70",
+                start=14.0, fade_in=2.0, fade_out=2.5, duration=12.0,
+            ))
+        render_song(track, overlays, seg, label=f"ob-t{i:02d}",
+                    fade_in_audio=(4.0 if i == 1 else 0.0))
+        seg_paths.append(seg)
+
+    # 03a — Puddle with closing credits scrolling over it (Busta first, then
+    # John's real-name reveal + name origin). Mark's spoken-word intro lives
+    # over the very start of the song.
+    puddle = SEGS / "03a_puddle.mp4"
     render_song(
         PUDDLE_MP3,
         title_lines=[
@@ -435,37 +485,8 @@ def main() -> None:
     )
     seg_paths.append(puddle)
 
-    # 02b — "Some stuff Ob banged out last night"
-    ob_intro = SEGS / "02b_ob_intro_card.mp4"
-    render_card([
-        Line("Some stuff Ob banged out last night.", ELITE, 70, "white", y="(h-text_h)/2",
-             start=1.0, duration=10.0),
-    ], duration=12.0, out=ob_intro, label="ob-intro")
-    seg_paths.append(ob_intro)
-
-    # 02c..02g — Obi tracks. Working dir has 10 mp3s (5 songs × 2 versions).
-    # For the v7 first cut, use the v2 versions only (5 songs).
-    obi_tracks = sorted(p for p in OBIE_DIR.glob("*v2.mp3"))
-    for i, track in enumerate(obi_tracks, start=1):
-        seg = SEGS / f"02c_ob_track{i:02d}.mp4"
-        overlays: list[Line] = []
-        # Drop the meta-text overlays partway through the third track.
-        if i == 3:
-            overlays.append(Line(
-                "Well, actually it's been a couple days now…",
-                ELITE, 50, "0xdddddd", y="h/4",
-                start=8.0, fade_in=2.0, fade_out=2.5, duration=12.0,
-            ))
-            overlays.append(Line(
-                "Claude Code wasn't as fast an editor as I'd hoped, lol.",
-                ELITE, 46, "0xbbbbbb", y="h/4+70",
-                start=14.0, fade_in=2.0, fade_out=2.5, duration=12.0,
-            ))
-        render_song(track, overlays, seg, label=f"ob-t{i:02d}")
-        seg_paths.append(seg)
-
-    # 03a — "John wrote this one the other day…"
-    hgb_intro = SEGS / "03a_hgb_intro_card.mp4"
+    # 04a — "John wrote this one the other day…"
+    hgb_intro = SEGS / "04a_hgb_intro_card.mp4"
     render_card([
         Line("John wrote this one the other day", ELITE, 56, "0xdddddd", y="h/2-80",
              start=1.0, duration=12.0),
@@ -474,8 +495,8 @@ def main() -> None:
     ], duration=14.0, out=hgb_intro, label="hgb-intro")
     seg_paths.append(hgb_intro)
 
-    # 03b — HGB
-    hgb = SEGS / "03b_hgb.mp4"
+    # 04b — HGB
+    hgb = SEGS / "04b_hgb.mp4"
     render_song(
         HGB_MP3,
         title_lines=[
