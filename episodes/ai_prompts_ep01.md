@@ -13,6 +13,55 @@ Each block below is a copy-pasteable prompt for **Sora 2** (ChatGPT Pro), **Veo 
 
 ---
 
+## Section 00 — Post-credits "bloopers" (movie-style stingers, ~5-15s each)
+
+> Plays during the **post-credit black tail of Puddle** (around 59:19–59:43 in
+> episode time) and scattered into Obi's tracks and HGB. Each is a brief surreal
+> moment that drops in, lands, fades out. Think Marvel post-credit stings.
+
+### Blooper 1 — "get out of my membrane" (PRE-credits, ~10s window)
+Slots in between Walgreens video ending and credits beginning. Two paths:
+
+**(a) AI-generate cartoon Mark singing the line:**
+```
+Hand-drawn cartoon of a middle-aged man, salt-and-pepper beard, modest smile, standing in front of an old-school microphone in a dim warm-lit room. He sings the phrase "get out of my membrane" with exaggerated emotion: eyes wide, both hands cupping his head on the word "membrane." Painterly, warm key light, dark background. 8-10 seconds. No on-screen text.
+```
+Save as `working/ai_overlays/mark_membrane.mp4` — I'll slot it into 322–332s.
+
+**(b) Cross-fade from John video to a still of you singing:**
+Drop a selfie at `working/ai_overlays/mark_membrane_still.jpg` and I'll cross-fade John's last Walgreens frame into your still, then Ken-Burns it across the 10s window.
+
+### Blooper 2 — Obi flying over a parking lot
+```
+Photo-real surreal: a man in a cowboy hat plays acoustic guitar while floating, cross-legged, three feet above a Whole Foods parking lot at dawn. Nobody notices. Hyperreal, deadpan, no text. 4 seconds.
+```
+
+### Blooper 3 — Busta on a mic
+```
+A brown shepherd-mix service dog stands at a microphone on a small Austin bar stage and barks short rhythmic notes that perfectly match the rhythm of an absent guitar. The bar is empty. Hyperreal, deadpan. 4 seconds.
+```
+
+### Blooper 4 — TK in a Waymo
+```
+A wiry man in his fifties, sun-leathered, eyes wide, rides solo in the back of an autonomous Waymo through downtown Austin at 3 AM. He is beatboxing softly. The Waymo's interior screen shows a route to "Brewno's Coffee." Hyperreal, no text. 4 seconds.
+```
+
+### Blooper 5 — Hunter on a laptop
+```
+A bearded man in his thirties hunches over an old gaming laptop in a dim cluttered apartment, beats pumping through earbuds. On the screen, a 3D model of the Treasury Building rotates slowly. Hyperreal, lit by laptop glow. 4 seconds.
+```
+
+### Blooper 6 — Wiley in the woods
+```
+A man with a wide grin stands in front of a recliner he has dragged deep into a pine woods at dusk, beside a perfect fire pit he has built with stones. He's holding a hammer. He nods at the camera. Hyperreal, golden-hour light through pine needles. 4 seconds.
+```
+
+Drop these (when you have them) into `working/ai_overlays/` with names like
+`blooper_membrane.mp4`, `blooper_obi_parking.mp4`, etc. Tell me when they're
+in — I'll schedule them to pop up at quiet moments in Obi's tracks and HGB.
+
+---
+
 ## Section 0 — Puddle (Mark's song, the credits song; ~3:52)
 
 > The credits scroll over Puddle's black-screen tail (starts ~10s after Walgreens video ends). AI overlay plays **only on the black portion** (Walgreens video is still on screen for the first 5s of Puddle's runtime). Visuals should be **slow, low-contrast, atmospheric** so they don't fight the credit reads. Output as one MP4 — drop it at `working/ai_overlays/puddle.mp4` and it'll loop to fill ~3:30 of black time.
