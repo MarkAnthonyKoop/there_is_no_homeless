@@ -43,6 +43,10 @@ PUDDLE_MP3 = SONGS_DIR / "puddle/puddle.mp3"
 HGB_MP3    = SONGS_DIR / "hgb/half_grown_boy.mp3"
 OBIE_DIR   = SONGS_DIR / "obie"  # 10 tracks: 5 songs × v1/v2
 
+# User drops downloaded AI MP4s here; render_song picks them up by filename.
+AI_OVERLAY_DIR = SONGS_DIR / "ai_overlays"
+AI_OVERLAY_DIR.mkdir(parents=True, exist_ok=True)
+
 W, H, FPS = 1920, 1080, 30
 
 
@@ -237,6 +241,7 @@ def render_walgreens_puddle_combined(
     walg_fade_end: float = 317.6,            # Walgreens audio fully muted by here
     puddle_start_in_walg: float = 317.0,     # Puddle begins playing on Walgreens timeline
     puddle_fade_in: float = 0.6,             # short — INSANE lyric is at 0.59s in Puddle
+    credit_lines: list[Line] | None = None,  # rendered after Walgreens video ends
 ) -> None:
     """Render Walgreens p2 video + Puddle audio overlapped so Puddle reaches
     full volume just before its first lyric ("INSANE..."), while Walgreens
@@ -285,10 +290,18 @@ def render_walgreens_puddle_combined(
     )
     handle_drawtext = _drawtext_filter(handle)
 
+    # Credit overlays draw onto the concatenated video. Their `start` times
+    # are global (i.e. measured from segment t=0). Any line with start < walg_dur
+    # will appear over Walgreens video; lines with start >= walg_dur appear
+    # over the black tail.
+    credits_chain = ""
+    if credit_lines:
+        credits_chain = "," + ",".join(_drawtext_filter(l) for l in credit_lines)
+
     # Filter graph:
     #   [0:v]  Walgreens letterbox + handle overlay  → [wv]
     #   [2:v]  black extension                       → [bv]
-    #   [wv][bv] concat                              → [vout]
+    #   [wv][bv] concat → credit overlays            → [vout]
     #   [0:a]  Walgreens audio bleep+fade-out        → [wa]
     #   [1:a]  Puddle audio delayed+fade-in          → [pa]
     #   [wa][pa] amix                                → [aout]
@@ -297,7 +310,7 @@ def render_walgreens_puddle_combined(
         f"pad=1920:1080:(1920-iw)/2:0:color=black,"
         f"{handle_drawtext}[wv];"
         f"[2:v]setpts=PTS-STARTPTS[bv];"
-        f"[wv][bv]concat=n=2:v=1:a=0[vout];"
+        f"[wv][bv]concat=n=2:v=1:a=0{credits_chain}[vout];"
         f"[0:a]{walg_audio_filter}[wa];"
         f"[1:a]{puddle_audio_filter}[pa];"
         f"[wa][pa]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
@@ -322,14 +335,14 @@ def render_walgreens_puddle_combined(
 
 def render_song(audio: Path, title_lines: list[Line], out: Path, label: str,
                 trailing_silence: float = 1.5,
-                fade_in_audio: float = 0.0) -> None:
+                fade_in_audio: float = 0.0,
+                ai_overlay: Path | None = None) -> None:
     """Render a song segment: black 1920x1080 video + audio file + optional
-    title overlay lines. Duration matches the audio's length plus a short
-    trailing silence so the next segment doesn't slam in."""
+    text overlays + optional AI video overlay composited on the black.
+    Duration matches the audio's length plus a short trailing silence."""
     if SKIP_EXISTING and out.exists():
         print(f"[song-{label}] skip (exists)", flush=True)
         return
-    # Audio duration via ffprobe
     r = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "csv=p=0", str(audio)],
@@ -338,18 +351,40 @@ def render_song(audio: Path, title_lines: list[Line], out: Path, label: str,
     audio_dur = float(r.stdout.strip())
     duration = audio_dur + trailing_silence
 
-    chain = ",".join(_drawtext_filter(l) for l in title_lines) if title_lines else "null"
-    vf = f"scale={W}:{H}" + ("," + chain if title_lines else "")
-    cmd = [
-        "ffmpeg", "-y",
-        "-stream_loop", "-1", "-t", str(duration), "-i", str(BLACK_SRC),
-        "-i", str(audio),
-        "-map", "0:v", "-map", "1:a",
-        "-vf", vf,
-        "-r", str(FPS),
-        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24",
-        "-preset", "ultrafast",
-    ]
+    chain = ",".join(_drawtext_filter(l) for l in title_lines) if title_lines else ""
+
+    if ai_overlay and ai_overlay.exists():
+        # Composite AI video over black, then add text overlays on top.
+        text_part = ("," + chain) if chain else ""
+        fc = (
+            f"[0:v]scale={W}:{H}[bg];"
+            f"[2:v]scale=-1:{H}:force_original_aspect_ratio=decrease,"
+            f"format=yuva420p[fg];"
+            f"[bg][fg]overlay=(W-w)/2:(H-h)/2:shortest=0{text_part}[vout]"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-stream_loop", "-1", "-t", str(duration), "-i", str(BLACK_SRC),
+            "-i", str(audio),
+            "-stream_loop", "-1", "-i", str(ai_overlay),
+            "-filter_complex", fc,
+            "-map", "[vout]", "-map", "1:a",
+            "-r", str(FPS),
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24",
+            "-preset", "ultrafast",
+        ]
+    else:
+        vf = f"scale={W}:{H}" + (("," + chain) if chain else "")
+        cmd = [
+            "ffmpeg", "-y",
+            "-stream_loop", "-1", "-t", str(duration), "-i", str(BLACK_SRC),
+            "-i", str(audio),
+            "-map", "0:v", "-map", "1:a",
+            "-vf", vf,
+            "-r", str(FPS),
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24",
+            "-preset", "ultrafast",
+        ]
     if fade_in_audio > 0:
         cmd += ["-af", f"afade=t=in:st=0:d={fade_in_audio:.3f}"]
     cmd += [
@@ -501,18 +536,69 @@ def main() -> None:
     # 01g/02 — Combined Walgreens p2 + Puddle transition (audio overlap so
     # Puddle's "INSANE" lyric (at 0.59s into Puddle) lands with Walgreens
     # audio already at 0 and Puddle at full volume, while Walgreens video
-    # is still on screen).
+    # is still on screen). Closing credits appear during Puddle's black-screen
+    # tail. Walgreens video ends at 322s; black starts at 322s; credits start
+    # after a brief beat (~10s into black).
+    cast_credit_y = "(h-text_h)/2-200"
+    cast_descr_y  = "h/2+50"
+    credit_lines = [
+        # === Cast (only those introduced) ===
+        Line("the cast", ELITE, 60, "0xcccccc", y=cast_credit_y,
+             start=332.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+        Line("Wiley", BEBAS, 180, "white", y="(h-text_h)/2",
+             start=335.0, fade_in=2.0, fade_out=2.5, duration=12.0),
+        Line("(or Texas, or Texas Wiley — comment if you know)", ELITE, 40, "0xbbbbbb",
+             y=cast_descr_y, start=337.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+        Line("Hunter", BEBAS, 180, "white", y="(h-text_h)/2",
+             start=352.0, fade_in=2.0, fade_out=2.5, duration=12.0),
+        Line("T.K.", BEBAS, 180, "white", y="(h-text_h)/2",
+             start=368.0, fade_in=2.0, fade_out=2.5, duration=12.0),
+        Line("Obi-Wan", BEBAS, 180, "white", y="(h-text_h)/2",
+             start=384.0, fade_in=2.0, fade_out=2.5, duration=12.0),
+        # === Starring (the dog + John) ===
+        Line("starring", ELITE, 60, "0xcccccc", y=cast_credit_y,
+             start=402.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+        Line("BUSTA RHYMES", BEBAS, 200, "white", y="(h-text_h)/2",
+             start=405.0, fade_in=2.0, fade_out=2.5, duration=14.0),
+        Line("(john's reason to be, at the moment)", ELITE, 44, "0xbbbbbb",
+             y=cast_descr_y, start=408.0, fade_in=2.0, fade_out=2.5, duration=11.0),
+        Line("and", ELITE, 56, "0xcccccc", y=cast_credit_y,
+             start=424.0, fade_in=2.0, fade_out=2.5, duration=8.0),
+        Line("THE GUY WITH THE DOG", BEBAS, 130, "white", y="(h-text_h)/2",
+             start=427.0, fade_in=2.0, fade_out=2.5, duration=14.0),
+        Line("(John Matesowicz)", ELITE, 56, "0xdddddd",
+             y=cast_descr_y, start=443.0, fade_in=2.0, fade_out=2.5, duration=12.0),
+        Line("a name his grandfather (or great grandfather) made up", ELITE, 44, "0xbbbbbb",
+             y="h/2-180", start=460.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+        Line("to be unique.", ELITE, 44, "0xbbbbbb",
+             y="h/2-130", start=465.0, fade_in=2.0, fade_out=2.5, duration=8.0),
+        Line("It is pronounced", ELITE, 48, "0xcccccc",
+             y="h/2-30", start=478.0, fade_in=2.0, fade_out=2.5, duration=8.0),
+        Line("Matt - Sock - O - Vits", BEBAS, 100, "white",
+             y="h/2+50", start=482.0, fade_in=2.0, fade_out=2.5, duration=12.0),
+        Line("(or something like that.)", ELITE, 44, "0xaaaaaa",
+             y="h/2+180", start=490.0, fade_in=2.0, fade_out=2.5, duration=8.0),
+        # === Open source CTA ===
+        Line("an open source project.", ELITE, 56, "0xdddddd", y="(h-text_h)/2-50",
+             start=508.0, fade_in=2.5, fade_out=3.0, duration=10.0),
+        Line("github.com/markanthonykoop", ELITE, 50, "0xcccccc", y="(h-text_h)/2+50",
+             start=511.0, fade_in=2.5, fade_out=3.0, duration=10.0),
+        Line("send tracks, ideas, code — let's decide where this goes next.", ELITE, 40, "0xaaaaaa",
+             y="h/2+130", start=515.0, fade_in=2.5, fade_out=3.0, duration=10.0),
+    ]
     v_combined = SEGS / "01g_02_walgreens_to_puddle.mp4"
     render_walgreens_puddle_combined(
         walg_src=WALGREENS_P2,
         puddle_mp3=PUDDLE_MP3,
         out=v_combined,
         walg_mutes=walg_p2_mutes,
+        credit_lines=credit_lines,
     )
     seg_paths.append(v_combined)
 
     # 03a..03e — Obi tracks (5 songs, v2 versions). Track 1 gets a label;
-    # track 3 carries the meta-text mid-section overlay.
+    # track 3 carries the meta-text mid-section overlay. If an AI MP4 named
+    # ob_t01.mp4 / ob_t02.mp4 / … exists in AI_OVERLAY_DIR, it gets composited.
     obi_tracks = sorted(p for p in OBIE_DIR.glob("*v2.mp3"))
     for i, track in enumerate(obi_tracks, start=1):
         seg = SEGS / f"03_ob_track{i:02d}.mp4"
@@ -534,7 +620,9 @@ def main() -> None:
                 ELITE, 46, "0xbbbbbb", y="h/4+70",
                 start=14.0, fade_in=2.0, fade_out=2.5, duration=12.0,
             ))
-        render_song(track, overlays, seg, label=f"ob-t{i:02d}")
+        ai = AI_OVERLAY_DIR / f"ob_t{i:02d}.mp4"
+        render_song(track, overlays, seg, label=f"ob-t{i:02d}",
+                    ai_overlay=ai if ai.exists() else None)
         seg_paths.append(seg)
 
     # 04a — "John wrote this one the other day…"
@@ -547,49 +635,26 @@ def main() -> None:
     ], duration=14.0, out=hgb_intro, label="hgb-intro")
     seg_paths.append(hgb_intro)
 
-    # 04b — HGB. Carries the title/artist overlay AND the closing credits
-    # (John Matesowicz reveal + name-origin reveals) over the song's runtime.
+    # 04b — HGB with title/artist overlay only (credits live on Puddle).
     hgb = SEGS / "04b_hgb.mp4"
+    hgb_ai = AI_OVERLAY_DIR / "hgb.mp4"
     render_song(
         HGB_MP3,
         title_lines=[
-            # Title overlay early (so viewers see what's playing)
             Line("\"Half Grown Boy\"", BEBAS, 100, "white", y="(h-text_h)/2-40",
                  start=8.0, fade_in=2.5, fade_out=3.0, duration=14.0),
             Line("by the guy with the dog", ELITE, 50, "0xdddddd", y="h/2+50",
                  start=10.0, fade_in=2.5, fade_out=3.0, duration=12.0),
-            # Closing credits scroll over the back half.
-            Line("starring", ELITE, 60, "0xcccccc", y="(h-text_h)/2-200",
-                 start=130.0, fade_in=2.5, fade_out=3.0, duration=12.0),
-            Line("BUSTA RHYMES", BEBAS, 180, "white", y="(h-text_h)/2",
-                 start=133.0, fade_in=2.5, fade_out=3.0, duration=14.0),
-            Line("(john's reason to be, at the moment)", ELITE, 44, "0xbbbbbb", y="h/2+150",
-                 start=136.0, fade_in=2.5, fade_out=3.0, duration=10.0),
-            Line("and", ELITE, 56, "0xcccccc", y="(h-text_h)/2-180",
-                 start=152.0, fade_in=2.5, fade_out=3.0, duration=10.0),
-            Line("THE GUY WITH THE DOG", BEBAS, 130, "white", y="(h-text_h)/2",
-                 start=155.0, fade_in=2.5, fade_out=3.0, duration=14.0),
-            Line("(John Matesowicz)", ELITE, 56, "0xdddddd", y="h/2+120",
-                 start=172.0, fade_in=2.5, fade_out=3.0, duration=10.0),
-            Line("a name his grandfather (or great grandfather) made up", ELITE, 44, "0xbbbbbb", y="h/2-180",
-                 start=190.0, fade_in=2.5, fade_out=3.0, duration=10.0),
-            Line("to be unique.", ELITE, 44, "0xbbbbbb", y="h/2-130",
-                 start=195.0, fade_in=2.5, fade_out=3.0, duration=8.0),
-            Line("It is pronounced", ELITE, 48, "0xcccccc", y="h/2-30",
-                 start=208.0, fade_in=2.5, fade_out=3.0, duration=8.0),
-            Line("Matt - Sock - O - Vits", BEBAS, 100, "white", y="h/2+50",
-                 start=212.0, fade_in=2.5, fade_out=3.0, duration=12.0),
-            Line("(or something like that.)", ELITE, 44, "0xaaaaaa", y="h/2+180",
-                 start=220.0, fade_in=2.5, fade_out=3.0, duration=8.0),
         ],
         out=hgb, label="hgb",
+        ai_overlay=hgb_ai if hgb_ai.exists() else None,
     )
     seg_paths.append(hgb)
 
     # Concat
-    list_file = V7 / "cold_open_concat.txt"
+    list_file = V7 / "concat.txt"
     list_file.write_text("\n".join(f"file '{p}'" for p in seg_paths) + "\n")
-    out = V7 / "cold_open_test.mp4"
+    out = V7 / "there_is_no_homeless_ch1_street_life_ep1_johns_pain_v0.1a.mp4"
     cmd = [
         "ffmpeg", "-y",
         "-f", "concat", "-safe", "0",
