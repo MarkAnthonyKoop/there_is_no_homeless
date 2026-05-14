@@ -412,15 +412,22 @@ def main() -> None:
     seg_paths.append(v2)
 
     # =================== SONGS SECTION ===================
-    # New order per user: Obi tracks crossfade in over Walgreens p2's tail,
-    # then Puddle with credits, then HGB.
+    # Order per user (corrected 2026-05-14): Puddle first (crossfaded in over
+    # Walgreens p2 tail, no text), then Obi tracks, then HGB with closing
+    # credits + John Matesowicz reveal over it.
 
-    # 02a..02e — Obi tracks (5 songs, v2 versions). The first one fades in to
-    # complete the crossfade-from-Walgreens, with the "Some stuff Ob banged
-    # out last night" caption as the opener label.
+    # 02 — Puddle (no text; just music, fading in to complete the crossfade
+    # from Walgreens p2's bleeped-n-word ending).
+    puddle = SEGS / "02_puddle.mp4"
+    render_song(PUDDLE_MP3, title_lines=[], out=puddle, label="puddle",
+                fade_in_audio=4.0)
+    seg_paths.append(puddle)
+
+    # 03a..03e — Obi tracks (5 songs, v2 versions). Track 1 gets a label;
+    # track 3 carries the meta-text mid-section overlay.
     obi_tracks = sorted(p for p in OBIE_DIR.glob("*v2.mp3"))
     for i, track in enumerate(obi_tracks, start=1):
-        seg = SEGS / f"02_ob_track{i:02d}.mp4"
+        seg = SEGS / f"03_ob_track{i:02d}.mp4"
         overlays: list[Line] = []
         if i == 1:
             overlays.append(Line(
@@ -439,51 +446,8 @@ def main() -> None:
                 ELITE, 46, "0xbbbbbb", y="h/4+70",
                 start=14.0, fade_in=2.0, fade_out=2.5, duration=12.0,
             ))
-        render_song(track, overlays, seg, label=f"ob-t{i:02d}",
-                    fade_in_audio=(4.0 if i == 1 else 0.0))
+        render_song(track, overlays, seg, label=f"ob-t{i:02d}")
         seg_paths.append(seg)
-
-    # 03a — Puddle with closing credits scrolling over it (Busta first, then
-    # John's real-name reveal + name origin). Mark's spoken-word intro lives
-    # over the very start of the song.
-    puddle = SEGS / "03a_puddle.mp4"
-    render_song(
-        PUDDLE_MP3,
-        title_lines=[
-            # Pre-song spoken-word text (Mark's "insane... get out of my membrane")
-            Line("\"insane… get out of my membrane.\"", ELITE, 56, "0xeeeeee", y="h/4-40",
-                 start=2.0, fade_in=2.0, fade_out=2.5, duration=10.0),
-            Line("\"its a pain, its john's pain (even though i said my)\"", ELITE, 50, "0xeeeeee", y="h/4+40",
-                 start=5.0, fade_in=2.0, fade_out=2.5, duration=10.0),
-            Line("\"copesetic strain, on my shallow brain.\"", ELITE, 50, "0xeeeeee", y="h/4+120",
-                 start=8.0, fade_in=2.0, fade_out=2.5, duration=10.0),
-            # End credits — fade in around 2:00 of the 3:51 song, sequential reveal.
-            Line("starring", ELITE, 60, "0xcccccc", y="(h-text_h)/2-200",
-                 start=120.0, fade_in=2.0, fade_out=2.5, duration=12.0),
-            Line("BUSTA RHYMES", BEBAS, 180, "white", y="(h-text_h)/2",
-                 start=123.0, fade_in=2.0, fade_out=2.5, duration=14.0),
-            Line("(john's reason to be, at the moment)", ELITE, 44, "0xbbbbbb", y="h/2+150",
-                 start=126.0, fade_in=2.0, fade_out=2.5, duration=10.0),
-            Line("and", ELITE, 56, "0xcccccc", y="(h-text_h)/2-180",
-                 start=144.0, fade_in=2.0, fade_out=2.5, duration=10.0),
-            Line("THE GUY WITH THE DOG", BEBAS, 130, "white", y="(h-text_h)/2",
-                 start=147.0, fade_in=2.0, fade_out=2.5, duration=14.0),
-            Line("(John Matesowicz)", ELITE, 56, "0xdddddd", y="h/2+120",
-                 start=164.0, fade_in=2.0, fade_out=2.5, duration=10.0),
-            Line("a name his grandfather (or great grandfather) made up", ELITE, 44, "0xbbbbbb", y="h/2-180",
-                 start=180.0, fade_in=2.0, fade_out=2.5, duration=10.0),
-            Line("to be unique.", ELITE, 44, "0xbbbbbb", y="h/2-130",
-                 start=185.0, fade_in=2.0, fade_out=2.5, duration=8.0),
-            Line("It is pronounced", ELITE, 48, "0xcccccc", y="h/2-30",
-                 start=198.0, fade_in=2.0, fade_out=2.5, duration=8.0),
-            Line("Matt - Sock - O - Vits", BEBAS, 110, "white", y="h/2+50",
-                 start=202.0, fade_in=2.0, fade_out=2.5, duration=12.0),
-            Line("(or something like that.)", ELITE, 44, "0xaaaaaa", y="h/2+180",
-                 start=210.0, fade_in=2.0, fade_out=2.5, duration=8.0),
-        ],
-        out=puddle, label="puddle",
-    )
-    seg_paths.append(puddle)
 
     # 04a — "John wrote this one the other day…"
     hgb_intro = SEGS / "04a_hgb_intro_card.mp4"
@@ -495,16 +459,40 @@ def main() -> None:
     ], duration=14.0, out=hgb_intro, label="hgb-intro")
     seg_paths.append(hgb_intro)
 
-    # 04b — HGB
+    # 04b — HGB. Carries the title/artist overlay AND the closing credits
+    # (John Matesowicz reveal + name-origin reveals) over the song's runtime.
     hgb = SEGS / "04b_hgb.mp4"
     render_song(
         HGB_MP3,
         title_lines=[
-            # Title/artist overlay near the end of the song.
-            Line("\"Half Grown Boy\"", BEBAS, 110, "white", y="(h-text_h)/2-40",
-                 start=230.0, fade_in=2.0, fade_out=2.5, duration=18.0),
-            Line("by the guy with the dog", ELITE, 56, "0xdddddd", y="h/2+60",
-                 start=234.0, fade_in=2.0, fade_out=2.5, duration=14.0),
+            # Title overlay early (so viewers see what's playing)
+            Line("\"Half Grown Boy\"", BEBAS, 100, "white", y="(h-text_h)/2-40",
+                 start=8.0, fade_in=2.5, fade_out=3.0, duration=14.0),
+            Line("by the guy with the dog", ELITE, 50, "0xdddddd", y="h/2+50",
+                 start=10.0, fade_in=2.5, fade_out=3.0, duration=12.0),
+            # Closing credits scroll over the back half.
+            Line("starring", ELITE, 60, "0xcccccc", y="(h-text_h)/2-200",
+                 start=130.0, fade_in=2.5, fade_out=3.0, duration=12.0),
+            Line("BUSTA RHYMES", BEBAS, 180, "white", y="(h-text_h)/2",
+                 start=133.0, fade_in=2.5, fade_out=3.0, duration=14.0),
+            Line("(john's reason to be, at the moment)", ELITE, 44, "0xbbbbbb", y="h/2+150",
+                 start=136.0, fade_in=2.5, fade_out=3.0, duration=10.0),
+            Line("and", ELITE, 56, "0xcccccc", y="(h-text_h)/2-180",
+                 start=152.0, fade_in=2.5, fade_out=3.0, duration=10.0),
+            Line("THE GUY WITH THE DOG", BEBAS, 130, "white", y="(h-text_h)/2",
+                 start=155.0, fade_in=2.5, fade_out=3.0, duration=14.0),
+            Line("(John Matesowicz)", ELITE, 56, "0xdddddd", y="h/2+120",
+                 start=172.0, fade_in=2.5, fade_out=3.0, duration=10.0),
+            Line("a name his grandfather (or great grandfather) made up", ELITE, 44, "0xbbbbbb", y="h/2-180",
+                 start=190.0, fade_in=2.5, fade_out=3.0, duration=10.0),
+            Line("to be unique.", ELITE, 44, "0xbbbbbb", y="h/2-130",
+                 start=195.0, fade_in=2.5, fade_out=3.0, duration=8.0),
+            Line("It is pronounced", ELITE, 48, "0xcccccc", y="h/2-30",
+                 start=208.0, fade_in=2.5, fade_out=3.0, duration=8.0),
+            Line("Matt - Sock - O - Vits", BEBAS, 100, "white", y="h/2+50",
+                 start=212.0, fade_in=2.5, fade_out=3.0, duration=12.0),
+            Line("(or something like that.)", ELITE, 44, "0xaaaaaa", y="h/2+180",
+                 start=220.0, fade_in=2.5, fade_out=3.0, duration=8.0),
         ],
         out=hgb, label="hgb",
     )
