@@ -246,6 +246,7 @@ def render_walgreens_puddle_combined(
     puddle_start_in_walg: float = 317.0,     # Puddle begins playing on Walgreens timeline
     puddle_fade_in: float = 0.6,             # short — INSANE lyric is at 0.59s in Puddle
     credit_lines: list[Line] | None = None,  # rendered after Walgreens video ends
+    ai_overlay: Path | None = None,          # AI MP4; only shown after Walgreens video ends
 ) -> None:
     """Render Walgreens p2 video + Puddle audio overlapped so Puddle reaches
     full volume just before its first lyric ("INSANE..."), while Walgreens
@@ -302,23 +303,55 @@ def render_walgreens_puddle_combined(
     if credit_lines:
         credits_chain = "," + ",".join(_drawtext_filter(l) for l in credit_lines)
 
-    # Filter graph:
-    #   [0:v]  Walgreens letterbox + handle overlay  → [wv]
-    #   [2:v]  black extension                       → [bv]
-    #   [wv][bv] concat → credit overlays            → [vout]
-    #   [0:a]  Walgreens audio bleep+fade-out        → [wa]
-    #   [1:a]  Puddle audio delayed+fade-in          → [pa]
-    #   [wa][pa] amix                                → [aout]
-    fc = (
-        f"[0:v]scale=-1:1080:force_original_aspect_ratio=decrease,"
-        f"pad=1920:1080:(1920-iw)/2:0:color=black,"
-        f"{handle_drawtext}[wv];"
-        f"[2:v]setpts=PTS-STARTPTS[bv];"
-        f"[wv][bv]concat=n=2:v=1:a=0{credits_chain}[vout];"
-        f"[0:a]{walg_audio_filter}[wa];"
-        f"[1:a]{puddle_audio_filter}[pa];"
-        f"[wa][pa]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
-    )
+    # Filter graph base:
+    #   [0:v] Walgreens letterbox + handle overlay  → [wv]
+    #   [2:v] black extension                       → [bv]
+    #   [wv][bv] concat                             → [concatv]
+    #   (optionally overlay AI mp4 enabled after walg_dur)
+    #   apply credit drawtexts                      → [vout]
+    if ai_overlay and ai_overlay.exists():
+        # AI overlay is enabled only during the black-tail (t >= walg_dur).
+        # Loop the overlay in case it's shorter than the tail.
+        ov_input_idx = 3
+        fc = (
+            f"[0:v]scale=-1:1080:force_original_aspect_ratio=decrease,"
+            f"pad=1920:1080:(1920-iw)/2:0:color=black,"
+            f"{handle_drawtext}[wv];"
+            f"[2:v]setpts=PTS-STARTPTS[bv];"
+            f"[wv][bv]concat=n=2:v=1:a=0[concatv];"
+            f"[{ov_input_idx}:v]scale=-1:{H}:force_original_aspect_ratio=decrease,"
+            f"format=yuva420p[fg];"
+            f"[concatv][fg]overlay=(W-w)/2:(H-h)/2:enable='gte(t\\,{walg_dur:.3f})':"
+            f"shortest=0[overlaid];"
+            f"[overlaid]{credits_chain[1:] if credits_chain else 'null'}[vout];"
+            f"[0:a]{walg_audio_filter}[wa];"
+            f"[1:a]{puddle_audio_filter}[pa];"
+            f"[wa][pa]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
+        ) if credits_chain else (
+            f"[0:v]scale=-1:1080:force_original_aspect_ratio=decrease,"
+            f"pad=1920:1080:(1920-iw)/2:0:color=black,"
+            f"{handle_drawtext}[wv];"
+            f"[2:v]setpts=PTS-STARTPTS[bv];"
+            f"[wv][bv]concat=n=2:v=1:a=0[concatv];"
+            f"[{ov_input_idx}:v]scale=-1:{H}:force_original_aspect_ratio=decrease,"
+            f"format=yuva420p[fg];"
+            f"[concatv][fg]overlay=(W-w)/2:(H-h)/2:enable='gte(t\\,{walg_dur:.3f})':"
+            f"shortest=0[vout];"
+            f"[0:a]{walg_audio_filter}[wa];"
+            f"[1:a]{puddle_audio_filter}[pa];"
+            f"[wa][pa]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
+        )
+    else:
+        fc = (
+            f"[0:v]scale=-1:1080:force_original_aspect_ratio=decrease,"
+            f"pad=1920:1080:(1920-iw)/2:0:color=black,"
+            f"{handle_drawtext}[wv];"
+            f"[2:v]setpts=PTS-STARTPTS[bv];"
+            f"[wv][bv]concat=n=2:v=1:a=0{credits_chain}[vout];"
+            f"[0:a]{walg_audio_filter}[wa];"
+            f"[1:a]{puddle_audio_filter}[pa];"
+            f"[wa][pa]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
+        )
 
     cmd = [
         "ffmpeg", "-y",
@@ -326,6 +359,10 @@ def render_walgreens_puddle_combined(
         "-i", str(puddle_mp3),
         "-f", "lavfi", "-t", f"{black_ext + 0.5:.3f}",
         "-i", f"color=c=black:s={W}x{H}:r={FPS}",
+    ]
+    if ai_overlay and ai_overlay.exists():
+        cmd += ["-stream_loop", "-1", "-i", str(ai_overlay)]
+    cmd += [
         "-filter_complex", fc,
         "-map", "[vout]", "-map", "[aout]",
         "-r", str(FPS),
@@ -591,12 +628,14 @@ def main() -> None:
              y="h/2+130", start=515.0, fade_in=2.5, fade_out=3.0, duration=10.0),
     ]
     v_combined = SEGS / "01g_02_walgreens_to_puddle.mp4"
+    puddle_ai = AI_OVERLAY_DIR / "puddle.mp4"
     render_walgreens_puddle_combined(
         walg_src=WALGREENS_P2,
         puddle_mp3=PUDDLE_MP3,
         out=v_combined,
         walg_mutes=walg_p2_mutes,
         credit_lines=credit_lines,
+        ai_overlay=puddle_ai if puddle_ai.exists() else None,
     )
     seg_paths.append(v_combined)
 
@@ -658,7 +697,7 @@ def main() -> None:
     # Concat
     list_file = V7 / "concat.txt"
     list_file.write_text("\n".join(f"file '{p}'" for p in seg_paths) + "\n")
-    out = V7 / "there_is_no_homeless_ch1_street_life_ep1_johns_pain_v0.1a.mp4"
+    out = V7 / "there_is_no_homeless_ch1_street_life_ep1_johns_pain_v0.2ai.mp4"
     cmd = [
         "ffmpeg", "-y",
         "-f", "concat", "-safe", "0",

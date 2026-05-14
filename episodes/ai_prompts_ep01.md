@@ -13,6 +13,19 @@ Each block below is a copy-pasteable prompt for **Sora 2** (ChatGPT Pro), **Veo 
 
 ---
 
+## Section 0 — Puddle (Mark's song, the credits song; ~3:52)
+
+> The credits scroll over Puddle's black-screen tail (starts ~10s after Walgreens video ends). AI overlay plays **only on the black portion** (Walgreens video is still on screen for the first 5s of Puddle's runtime). Visuals should be **slow, low-contrast, atmospheric** so they don't fight the credit reads. Output as one MP4 — drop it at `working/ai_overlays/puddle.mp4` and it'll loop to fill ~3:30 of black time.
+
+### Puddle shot — one long atmospheric loop
+```
+A slow, contemplative hand-painted animation of a single small puddle on a wet sidewalk at night, lit dimly by a yellowed streetlamp. Slow ripples spread outward as droplets fall one at a time. The reflection of city lights wavers and reforms. Camera holds wide and almost still, drifting slightly. Very low contrast, mostly deep blue and warm amber. No human figures. Loopable, ~30 seconds. Painterly, melancholic, no text, no logos. Suitable as a background for white text overlays.
+```
+
+If you want more variety, generate **2-3** of these with slight variations (different angles on the puddle, different rain density) and chain them; I'll concat them into a single `puddle.mp4`.
+
+---
+
 ## Section 1 — Obi's songs (5 tracks, ~3 min each)
 
 > User direction: "*a cartoon version of obi playing guitar, slow intentful strings, maybe breaking one because he pulls it so hard before releasing. maybe flying.*"
