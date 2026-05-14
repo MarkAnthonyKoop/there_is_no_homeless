@@ -1,0 +1,41 @@
+# Inherited safety: credentials, caches, large media — see ~/claude/.gitignore
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+*.un~
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# Credentials
+*.pickle
+*_token.json
+*.key
+*.pem
+.env
+.env.*
+client_secret*.json
+.git-credentials
+api_key
+
+# === project-specific ===
+# `assets/` is a symlink to /mnt/d/theres_is_no_homeless/ — heavy raw media,
+# off-the-record footage, NOT for public repo. Stays local.
+/assets
+
+# Word-level transcripts of phone footage may contain personally identifiable
+# information (real names, conversations not yet redacted for publication).
+# Excluded by default; review per-file before adding back.
+/transcriptions_word_level/
+
+# Local renders / scratch
+/working
+*.mp4
+*.mov
+*.wav
+*.flac
+*.mp3
+*.m4a
