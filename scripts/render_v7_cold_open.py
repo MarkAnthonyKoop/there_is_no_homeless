@@ -227,6 +227,99 @@ def title_lines() -> list[Line]:
     ]
 
 
+def render_walgreens_puddle_combined(
+    walg_src: Path,
+    puddle_mp3: Path,
+    out: Path,
+    walg_mutes: list[tuple[float, float]],
+    handle_lower: str = "the guy with the dog  ·  may 10  ·  walgreens (cont.)",
+    walg_fade_start: float = 315.0,
+    walg_fade_end: float = 317.6,            # Walgreens audio fully muted by here
+    puddle_start_in_walg: float = 317.0,     # Puddle begins playing on Walgreens timeline
+    puddle_fade_in: float = 0.6,             # short — INSANE lyric is at 0.59s in Puddle
+) -> None:
+    """Render Walgreens p2 video + Puddle audio overlapped so Puddle reaches
+    full volume just before its first lyric ("INSANE..."), while Walgreens
+    audio is already silent. Walgreens video plays its full length, then
+    black-screen extends to cover the remainder of Puddle's runtime.
+    """
+    if SKIP_EXISTING and out.exists():
+        print(f"[walg-puddle] skip (exists)", flush=True)
+        return
+
+    def _dur(p: Path) -> float:
+        r = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(p)],
+            capture_output=True, text=True, check=True,
+        )
+        return float(r.stdout.strip())
+
+    walg_dur = _dur(walg_src)
+    puddle_dur = _dur(puddle_mp3)
+    puddle_end = puddle_start_in_walg + puddle_dur
+    total = max(walg_dur, puddle_end)
+    black_ext = max(0.0, total - walg_dur)
+
+    # Build the audio filters for Walgreens p2: bleep chain + fade-out window.
+    walg_chain_parts: list[str] = []
+    mute = _mute_filter(walg_mutes, source_start=0.0)
+    if mute:
+        walg_chain_parts.append(mute)
+    walg_chain_parts.append(
+        f"afade=t=out:st={walg_fade_start:.3f}:d={(walg_fade_end - walg_fade_start):.3f}"
+    )
+    walg_audio_filter = ",".join(walg_chain_parts)
+
+    # Puddle audio: delay onto Walgreens timeline + fade-in just before INSANE.
+    delay_ms = int(puddle_start_in_walg * 1000)
+    puddle_audio_filter = (
+        f"adelay={delay_ms}|{delay_ms},"
+        f"afade=t=in:st={puddle_start_in_walg:.3f}:d={puddle_fade_in:.3f}"
+    )
+
+    handle = Line(
+        text=handle_lower, font=ELITE, size=36, color="0xdddddd",
+        x="40", y="h-80",
+        fade_in=0.5, fade_out=0.8, start=0.5, duration=8.0,
+    )
+    handle_drawtext = _drawtext_filter(handle)
+
+    # Filter graph:
+    #   [0:v]  Walgreens letterbox + handle overlay  → [wv]
+    #   [2:v]  black extension                       → [bv]
+    #   [wv][bv] concat                              → [vout]
+    #   [0:a]  Walgreens audio bleep+fade-out        → [wa]
+    #   [1:a]  Puddle audio delayed+fade-in          → [pa]
+    #   [wa][pa] amix                                → [aout]
+    fc = (
+        f"[0:v]scale=-1:1080:force_original_aspect_ratio=decrease,"
+        f"pad=1920:1080:(1920-iw)/2:0:color=black,"
+        f"{handle_drawtext}[wv];"
+        f"[2:v]setpts=PTS-STARTPTS[bv];"
+        f"[wv][bv]concat=n=2:v=1:a=0[vout];"
+        f"[0:a]{walg_audio_filter}[wa];"
+        f"[1:a]{puddle_audio_filter}[pa];"
+        f"[wa][pa]amix=inputs=2:duration=longest:dropout_transition=0[aout]"
+    )
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(walg_src),
+        "-i", str(puddle_mp3),
+        "-f", "lavfi", "-t", f"{black_ext + 0.5:.3f}",
+        "-i", f"color=c=black:s={W}x{H}:r={FPS}",
+        "-filter_complex", fc,
+        "-map", "[vout]", "-map", "[aout]",
+        "-r", str(FPS),
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24", "-preset", "ultrafast",
+        "-c:a", "aac", "-b:a", "192k",
+        "-t", f"{total:.3f}",
+        str(out),
+    ]
+    run(cmd, label="walg-puddle")
+
+
 def render_song(audio: Path, title_lines: list[Line], out: Path, label: str,
                 trailing_silence: float = 1.5,
                 fade_in_audio: float = 0.0) -> None:
@@ -405,23 +498,18 @@ def main() -> None:
     v1 = SEGS / "01g_walgreens_p1_vid.mp4"
     render_vid(WALGREENS_P1, 0.0, None, "the guy with the dog  ·  may 10  ·  walgreens", v1)
     seg_paths.append(v1)
-    v2 = SEGS / "01g_walgreens_p2_vid.mp4"
-    render_vid(WALGREENS_P2, 0.0, None, "the guy with the dog  ·  may 10  ·  walgreens (cont.)", v2,
-               mute_ranges=walg_p2_mutes,
-               fade_out_audio=4.0)  # audio fades out over last 4s so Obi music can crossfade in
-    seg_paths.append(v2)
-
-    # =================== SONGS SECTION ===================
-    # Order per user (corrected 2026-05-14): Puddle first (crossfaded in over
-    # Walgreens p2 tail, no text), then Obi tracks, then HGB with closing
-    # credits + John Matesowicz reveal over it.
-
-    # 02 — Puddle (no text; just music, fading in to complete the crossfade
-    # from Walgreens p2's bleeped-n-word ending).
-    puddle = SEGS / "02_puddle.mp4"
-    render_song(PUDDLE_MP3, title_lines=[], out=puddle, label="puddle",
-                fade_in_audio=4.0)
-    seg_paths.append(puddle)
+    # 01g/02 — Combined Walgreens p2 + Puddle transition (audio overlap so
+    # Puddle's "INSANE" lyric (at 0.59s into Puddle) lands with Walgreens
+    # audio already at 0 and Puddle at full volume, while Walgreens video
+    # is still on screen).
+    v_combined = SEGS / "01g_02_walgreens_to_puddle.mp4"
+    render_walgreens_puddle_combined(
+        walg_src=WALGREENS_P2,
+        puddle_mp3=PUDDLE_MP3,
+        out=v_combined,
+        walg_mutes=walg_p2_mutes,
+    )
+    seg_paths.append(v_combined)
 
     # 03a..03e — Obi tracks (5 songs, v2 versions). Track 1 gets a label;
     # track 3 carries the meta-text mid-section overlay.
