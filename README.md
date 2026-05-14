@@ -1,171 +1,141 @@
-# there_is_no_homeless
+# There Is No Homeless
 
-A documentary / episode-publishing project. Each episode is a chapter+number under
-`episodes/`, scripted and shipped as a YouTube video with an AI-overlay intro,
-field footage, and a song outro.
+An open-source documentary project. Each episode is a chapter, scripted as
+markdown, rendered with `ffmpeg` and the sibling tools in this org, and
+published to YouTube. Filmed in Austin, TX. All editing tools, episode
+scripts, and AI-generation prompts live in this repo (or its siblings) and
+are open for anyone to fork, remix, or reuse.
 
-Heavy media (raw recordings, working files, finals) lives on the **D: drive** to
-keep `C:` from filling up. The on-disk layout for each episode mirrors a normal
-post-production cut.
-
-## State as of 2026-05-12
-
-The raw data is on disk and partial transcription has started — **do not
-re-pull the phone or re-run transcription that's already complete.**
-
-- **Phone videos** (132 × mp4, 9.6 h, ~74 GB) are at
-  `/mnt/d/downloads/there_is_no_homeless/`. The asset symlink under
-  `assets/` points to a sibling dir `/mnt/d/there_is_no_homeless/` that's
-  still mostly empty — the ingest move hasn't happened yet.
-- **Sound recordings** (151 × m4a, 7.4 GB) are at
-  `/mnt/c/Users/x/Documents/Sound recordings/`. The most recent 5 are
-  transcribed. `Recording (140).m4a` is the episode-1 narration; `ez.m4a`
-  is the "ez pz" marker file.
-- **WhatsApp re-encodes** (5 × mp4) are at
-  `…/there_is_no_homeless/whatsapp/` — all 5 transcribed.
-- **Per-source transcripts, manifest, database, and dedup tooling** all
-  live under `/mnt/d/downloads/there_is_no_homeless/transcriptions/`,
-  which has its **own** `README.md` and `CLAUDE.md`. Read those before
-  touching transcripts.
-- **WhatsApp ↔ phone-video dedup tool is written but not yet run.** Phone-side
-  video transcription is gated on that.
+The premise (in one sentence): **the people on Austin's streets are some of
+the most articulate, talented, and considered people we've met — and
+"homelessness" is not the story they're telling.**
 
 ---
 
-## §1 User manual
+## §1 What's here
 
-```bash
-# the project root has scripts; assets are a symlink to /mnt/d/there_is_no_homeless
-cd ~/claude/there_is_no_homeless
+- **`episodes/`** — one markdown per episode, with cast list, segment
+  timeline, description copy, and AI-prompt notes. The first one is
+  `ch01-street-life-ep01-johns-pain.md`.
+- **`scripts/`** — `ffmpeg`-based render scripts that consume the episode
+  markdown and produce the final cut. Also helpers (`find_bleep_ranges.py`,
+  `extract_v6_songs.py`, `publish_v04.py`).
+- **`transcripts/`** — Whisper transcripts of every source clip used in a
+  published episode, organized `video/` (phone footage) and `audio/`
+  (songs and standalone recordings). Word-level timestamps available on
+  request.
+- **`bleep_ranges.json`** — machine-readable word-level timing of every
+  bleeped F-word or n-word in the published cut, in case anyone wants to
+  audit the edit choices.
+- **`assets/`** *(symlink, not in repo)* — raw phone footage and high-bitrate
+  intermediates. **Off-repo** because they total ~10 GB. See §4.
 
-# pull whatever's currently on the tethered phone (audio + video + DCIM)
-python3 -m scripts.phone_backup            # → /mnt/d/phone_backups/<phone>/<date>/
+## §2 Episodes
 
-# transcribe the N most-recent sound recordings (driver lives in transcriptions/)
-cd /mnt/d/downloads/there_is_no_homeless/transcriptions
-python3 tools/transcribe_recent/main.py \
-    --source "/mnt/c/Users/x/Documents/Sound recordings" \
-    --output audio --ext m4a --count 5
+| # | Title | Status | YouTube |
+|---|---|---|---|
+| Ch1 Ep1 | *John's Pain* | published 2026-05-14 | (link will be in the repo description once live) |
 
-# rebuild the human-facing transcription database
-python3 tools/build_database/main.py        # writes transcriptions/database.md
+## §3 How others can collaborate
 
-# decide which WhatsApp videos are re-encodes of phone clips
-python3 tools/compare_videos/main.py \
-    --whatsapp /mnt/d/downloads/there_is_no_homeless/whatsapp \
-    --phone    /mnt/d/downloads/there_is_no_homeless
+We're trying to keep the bar to participation **low**. Pick any of these:
 
-# search transcripts for a phrase (the "ez pz" file says "easy peasy" in audio)
-grep -irn "easy" /mnt/d/downloads/there_is_no_homeless/transcriptions/audio/
+### Watch an episode and send a track
+The closing songs on each episode are written by characters in it (Suno,
+Reaper, garage demos — anything). If you watch Ep1 and want yours included
+on Ep2, send a stem or a final mix to the discussion section of this repo
+or as an issue with the `track-submission` label. Original work only; you
+keep the rights, we credit you by your street-handle (or real name if you
+prefer).
 
-# render the episode (compose-from-markdown — see "Episode build" below)
-python3 -m video_composer outline   episodes/<id>.md   # human-readable timeline summary
-python3 -m video_composer render    episodes/<id>.md   # → final MP4 path on stdout
+### Open a PR against an episode script
+The episode markdowns are the source of truth for the cut. If you have a
+sharper title-card line, a better caption rewrite, or a fix to the segment
+timing — open a PR. The render scripts are idempotent, so we can re-cut
+quickly to compare.
 
-# fill any [GAP] segments with AI-generated b-roll
-python3 -m video_composer gaps      episodes/<id>.md --json > /tmp/gaps.json
-python3 -m runway_client batch      /tmp/gaps.json     # → {seg-id: /mnt/d/.../seg-id.mp4}
-# paste the returned paths back into the matching segments as `runway_result:` and re-render
+### Add an AI overlay
+Each music segment can host an AI-generated cartoon or stinger. Prompts
+live in `episodes/ai_prompts_ep01.md` (and per-episode for future ones).
+Generate one in Sora/Veo/Grok, drop the MP4 in the issue, we composite.
 
-# upload the final cut to YouTube + back assets up to Drive    (TODO: scripts.publish_episode)
-python3 -m scripts.publish_episode ch01-street-life-ep01-johns-pain
-```
+### Build a new sibling tool
+If you spot something the pipeline does badly (or doesn't do at all),
+build it as a sibling repo under your own account and link it here. The
+existing siblings are listed in §5.
 
-## §2 Reference
+### Be in an episode
+We film a lot, only use a fraction. Permission is per-person, per-clip.
+If you're in Austin and want to be in something, open an issue describing
+who you are and where you hang out. We'll find you.
 
-### Layout
-```
-~/claude/there_is_no_homeless/         project root (code + this doc)
-├── README.md                           this file
-├── CLAUDE.md                           AI norms
-├── episodes/                           one .md per episode (script, credits, decisions)
-│   └── ch01-street-life-ep01-johns-pain.md
-├── scripts/                            phone_backup, etc. (most still TODOs)
-├── ai_overlay/                         intro-narration audio + simple "title card" video gen
-└── assets -> /mnt/d/there_is_no_homeless
-                                        symlink — heavy media lives here (mostly empty so far)
-```
+## §4 Raw assets — where they live
 
-```
-/mnt/d/there_is_no_homeless/
-└── episodes/
-    └── ch01-street-life-ep01-johns-pain/
-        ├── raw/audio/                  (ingest dest; not yet populated)
-        ├── raw/video/                  (ingest dest; not yet populated)
-        ├── working/                    transcripts, trimmed clips, intermediate renders
-        └── final/                      final MP4 + thumbnail + description
-```
+Phone footage and high-bitrate intermediates are too big for the repo
+(~10 GB for Ep1 alone). They will be uploaded to **GitHub Releases** for
+this repo as `ep01-raw-<clip>.mp4` (each file ≤ 2 GB).
 
-```
-/mnt/d/downloads/there_is_no_homeless/      where the data actually lives right now
-├── VID_YYYYMMDD_HHMMSS_*.mp4           132 phone videos (~74 GB, 9.6 h)
-├── IMG_*.jpg                           46 phone photos
-├── whatsapp/                           5 WhatsApp re-encodes (mostly dupes of phone clips)
-└── transcriptions/                     transcripts + tools + database (own README + CLAUDE.md)
-    ├── audio/                          per-recording transcripts (.json + .md)
-    ├── video_whatsapp/
-    ├── video_phone/                    (planned, after dedup)
-    ├── tools/
-    │   ├── transcribe_recent/
-    │   ├── build_database/
-    │   └── compare_videos/
-    ├── database.md                     human-readable index + summary
-    └── manifest.jsonl                  append-only record per transcript
-```
+While that's being staged, the canonical local paths on the maintainer's
+machine are documented in `episodes/<episode>.md` under the relevant
+`seg-XX` entries. If you need a specific clip before the release is up,
+open an issue with the timestamp + episode segment and we'll DM you a
+Google Drive link.
 
-```
-/mnt/c/Users/x/Documents/Sound recordings/   Windows Voice Recorder app store
-    151 × Recording (NNN).m4a + a few renamed favorites (ez.m4a, etc.)
-```
+## §5 Sibling tools
 
-### Episodes
+| Repo | What it does |
+|---|---|
+| `MarkAnthonyKoop/youtube_publisher` | Tag MP4 metadata + upload to YouTube |
+| `MarkAnthonyKoop/speech_transcriber` | faster-whisper wrapper, used for the transcripts under `transcripts/` |
+| `MarkAnthonyKoop/video_composer` | Declarative markdown timeline → MP4 (designed for this project) |
+| `MarkAnthonyKoop/suno_client` | Suno API access (the closing-set tracks are generated here) |
+| `MarkAnthonyKoop/runway_client` | Runway public API client (reserved for future AI inserts) |
+| `MarkAnthonyKoop/cover_art` | Procedural cover art |
+| `MarkAnthonyKoop/ai_cover_art` | AI cover art (Pollinations.ai free / OpenAI paid) |
+| `MarkAnthonyKoop/chrome_auth` | Pull cookies from a running Chrome (used by suno_client) |
+| `MarkAnthonyKoop/computer_control` | Selenium / pyautogui / Chrome-CDP utilities |
+| `MarkAnthonyKoop/github_client` | Minimal GitHub REST client with leak guardrails |
 
-| ID | Chapter | Title |
-|----|---------|-------|
-| ch01-street-life-ep01-johns-pain | Street Life | John's Pain |
+Each is its own repo, its own README, and its own license — designed to be
+reusable outside this project.
 
-### Credentials in use
-- **YouTube + Drive** OAuth: `~/.cache/youtube_publisher/token_677495352.pickle`
-  (already includes `youtube.upload` + `drive.file` from the Fog release).
+## §6 Tech stack (ep1)
 
-## §3 Architecture
+- **Edit**: `ffmpeg` orchestrated by `scripts/render_v7_cold_open.py`.
+- **Transcription**: `faster-whisper` (distil-large-v3, GPU).
+- **Music**: human-recorded (Puddle) + Suno (Ob's set, Half Grown Boy
+  attributed to the artist).
+- **AI overlays** (planned): Sora 2, Veo 3, Grok Imagine. Prompts pre-written.
+- **Publish**: `youtube_publisher` sibling, cached OAuth.
 
-Pure orchestration. Each leaf concern is in (or will be split into) a sibling
-under `~/claude/`:
+## §7 Licensing
 
-- `video_composer/` — episode markdown → final MP4 (parser + ffmpeg + sha1 cache)
-- `runway_client/` — AI b-roll for `[GAP]` segments (text → image → motion clip)
-- `speech_transcriber/` — faster-whisper transcripts of pulled audio and master mix
-- `youtube_publisher/` — final MP4 → YouTube
-- `ai_cover_art/` — title-card / thumbnail
-- `computer_control/` — for any screen capture / UI driving
-- `audio_metadata/` (planned) — tagging
+- **Code** (`scripts/`, render and helper Python): MIT.
+- **Episode scripts and prompts** (`episodes/*.md`): CC BY-SA 4.0.
+- **Transcripts** (`transcripts/`): CC BY-SA 4.0.
+- **Raw video and audio assets**: per-person consent; use is limited to
+  the published episode unless the depicted person grants additional rights.
+  Contact maintainer for clarification.
+- **Songs**:
+  - *Puddle* — Mark Nadon · MiddleMatter Music.
+  - *Half Grown Boy* — John Matesowicz ("the guy with the dog").
+  - Closing set — Suno handle `complexscenes6180`.
 
-This project's scripts only **compose** those siblings; they do not implement
-audio/video transforms inline. If a script grows past ~150 lines, that's the
-signal it should be split into a sibling.
+If you want to use the work in a way these licenses don't cover, open an
+issue and we'll figure it out.
 
-### Episode build (video_composer-driven)
+## §8 Contact
 
-Each episode `.md` has TWO halves:
-1. **The human document at the top** — outline, transcripts, credits, open
-   decisions, description draft. This is for *you*.
-2. **A `## Timeline` section with YAML frontmatter and `### seg-NN` blocks** —
-   this is what `video_composer` actually reads.
+Until we set up something nicer, use:
+- Issues on this repo for technical, editorial, or participation questions.
+- The cast handles inside an episode for people-specific outreach (we
+  pass messages along).
+- Send-it-and-see uploads under `track-submission` label for music.
 
-See `~/claude/video_composer/README.md` §1 for the timeline schema. The
-frontmatter (`master_audio`, `fps`, `resolution`) lives **inside** the
-`## Timeline` section as its own YAML block — keep it separate from the
-narrative top of the file so editing prose doesn't risk breaking the parser.
+## §9 Status
 
-The phone-pull and ADB-Wi-Fi workaround live in `scripts/phone_backup.py` and
-`scripts/setup_wireless_adb.md` — see `CLAUDE.md` for the why.
+This is **early.** Expect breakage. Expect the markdown formats to change.
+Expect the render scripts to be replaced by something cleaner. Expect us
+to fail in interesting ways. PRs and patches welcome.
 
-### Where transcription work lives
-
-The transcript / manifest / database / dedup tooling is a self-contained
-subtree under `/mnt/d/downloads/there_is_no_homeless/transcriptions/`. It
-has its own [`README.md`](../../mnt/d/downloads/there_is_no_homeless/transcriptions/README.md)
-and [`CLAUDE.md`](../../mnt/d/downloads/there_is_no_homeless/transcriptions/CLAUDE.md).
-That tree is a **build artifact** — every file in it can be regenerated
-from the raw media plus the `speech_transcriber/` sibling.
+© 2026 MiddleMatterMedia. The works in this repo are licensed per §7.

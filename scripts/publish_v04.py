@@ -20,7 +20,7 @@ from youtube_publisher.credentials import pick_client_secrets
 
 EP_DIR = Path("/mnt/d/theres_is_no_homeless/episodes/ch01-street-life-ep01-johns-pain")
 V7 = EP_DIR / "v7"
-MP4 = V7 / "there_is_no_homeless_ep1_v0.4.mp4"
+MP4 = V7 / "there_is_no_homeless_ch1_street_life_ep1_johns_pain_v0.4.mp4"
 RENDER_SCRIPT = Path("/home/xx/claude/there_is_no_homeless/scripts/render_v7_cold_open.py")
 
 TITLE = "There Is No Homeless · Ch 1 Street Life · Ep 1 — John's Pain"
