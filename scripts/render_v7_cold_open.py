@@ -76,11 +76,15 @@ def run(cmd: list[str], *, label: str) -> None:
 
 
 def _escape(text: str) -> str:
-    """Escape a string for ffmpeg drawtext."""
+    """Escape a string for ffmpeg drawtext text='...' option.
+
+    Single quotes can't appear inside a single-quoted attribute; the standard
+    workaround is end-quote / escape / restart-quote → `'\\''` (4 literal chars).
+    """
     return (text
             .replace("\\", "\\\\")
             .replace(":", r"\:")
-            .replace("'", r"\\\'")
+            .replace("'", r"'\''")
             .replace(",", r"\,"))
 
 
@@ -583,7 +587,7 @@ def main() -> None:
              start=508.0, fade_in=2.5, fade_out=3.0, duration=10.0),
         Line("github.com/markanthonykoop", ELITE, 50, "0xcccccc", y="(h-text_h)/2+50",
              start=511.0, fade_in=2.5, fade_out=3.0, duration=10.0),
-        Line("send tracks, ideas, code — let's decide where this goes next.", ELITE, 40, "0xaaaaaa",
+        Line("send tracks, ideas, code — help us decide where this goes next.", ELITE, 40, "0xaaaaaa",
              y="h/2+130", start=515.0, fade_in=2.5, fade_out=3.0, duration=10.0),
     ]
     v_combined = SEGS / "01g_02_walgreens_to_puddle.mp4"
