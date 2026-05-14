@@ -35,7 +35,14 @@ PICKUP = EP_DIR / "working/pickup/pickup_20260507_graded.mp4"
 REFIND = EP_DIR / "working/reunion/02_refind_20260510_2003.mp4"
 PHONE = Path("/mnt/d/downloads/there_is_no_homeless")
 WALGREENS_P1 = PHONE / "VID_20260510_200845459.mp4"     # 5:22, finds John, John starts singing
-WALGREENS_P2 = PHONE / "VID_20260510_200845459_02.mp4"  # continuation; contains n-word ~5:17 (bleep later)
+WALGREENS_P2 = PHONE / "VID_20260510_200845459_02.mp4"  # continuation; n-words at 318.61, 319.79
+HUNTER_BEATS = PHONE / "VID_20260508_051020881.mp4"     # 5:00, May 8 05:10 — "hope you like these nasty beats"
+
+SONGS_DIR = EP_DIR / "working"
+PUDDLE_MP3 = SONGS_DIR / "puddle/puddle.mp3"
+HGB_MP3    = SONGS_DIR / "hgb/half_grown_boy.mp3"
+OBIE_DIR   = SONGS_DIR / "obie"  # 10 tracks: 5 songs × v1/v2
+
 W, H, FPS = 1920, 1080, 30
 
 
@@ -121,28 +128,40 @@ def render_card(lines: list[Line], duration: float, out: Path, label: str) -> No
     run(cmd, label=f"card-{label}")
 
 
-def _mute_filter(ranges: list[tuple[float, float]], source_start: float) -> str | None:
-    """Build a volume=0 filter for the given (start,end) mute windows.
+def _mute_filter(ranges: list[tuple[float, float]], source_start: float,
+                 fade: float = 0.08) -> str | None:
+    """Build a chain of volume filters that gently fade audio to 0 around each
+    bleep window, instead of a hard cut.
 
-    Ranges are in *source-clip* time; subtract source_start so they map onto
-    the output's timeline.
+    For each (start, end), the volume traces a 'valley':
+      t < start-fade:  vol = 1.0
+      [start-fade .. start]:  ramp 1.0 → 0.0
+      [start .. end]:  vol = 0.0
+      [end .. end+fade]:  ramp 0.0 → 1.0
+      t > end+fade:  vol = 1.0
     """
-    adjusted = []
+    parts: list[str] = []
     for s, e in ranges:
-        s2 = s - source_start
+        s2 = max(0.0, s - source_start)
         e2 = e - source_start
         if e2 <= 0:
             continue
-        adjusted.append((max(0.0, s2), e2))
-    if not adjusted:
-        return None
-    enable_expr = "+".join(f"between(t\\,{s:.3f}\\,{e:.3f})" for s, e in adjusted)
-    return f"volume=volume=0:enable='{enable_expr}'"
+        # Commas inside the volume expression must be escaped because the outer
+        # -af filter chain uses commas to separate filters.
+        expr = (
+            f"if(lt(t\\,{s2-fade:.3f})\\,1\\,"
+            f"if(lt(t\\,{s2:.3f})\\,(({s2:.3f}-t)/{fade:.3f})\\,"
+            f"if(lt(t\\,{e2:.3f})\\,0\\,"
+            f"if(lt(t\\,{e2+fade:.3f})\\,((t-{e2:.3f})/{fade:.3f})\\,1))))"
+        )
+        parts.append(f"volume=eval=frame:volume='{expr}'")
+    return ",".join(parts) if parts else None
 
 
 def render_vid(src: Path, source_start: float, duration: float | None,
                handle_lower: str, out: Path,
-               mute_ranges: list[tuple[float, float]] | None = None) -> None:
+               mute_ranges: list[tuple[float, float]] | None = None,
+               audio_gain: float = 1.0) -> None:
     if SKIP_EXISTING and out.exists():
         print(f"[vid-{handle_lower}] skip (exists)", flush=True)
         return
@@ -168,10 +187,15 @@ def render_vid(src: Path, source_start: float, duration: float | None,
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24",
         "-preset", "ultrafast",
     ]
+    af_parts: list[str] = []
     if mute_ranges:
         af = _mute_filter(mute_ranges, source_start)
         if af:
-            cmd += ["-af", af]
+            af_parts.append(af)
+    if audio_gain != 1.0:
+        af_parts.append(f"volume={audio_gain}")
+    if af_parts:
+        cmd += ["-af", ",".join(af_parts)]
     cmd += [
         "-c:a", "aac", "-b:a", "192k", "-ac", "2",
         str(out),
@@ -188,6 +212,41 @@ def title_lines() -> list[Line]:
         Line("Episode 1  ·  John's Pain", BEBAS, 72, "white",
              y="720", fade_in=2.0, fade_out=2.5, start=7.0, duration=9.0),
     ]
+
+
+def render_song(audio: Path, title_lines: list[Line], out: Path, label: str,
+                trailing_silence: float = 1.5) -> None:
+    """Render a song segment: black 1920x1080 video + audio file + optional
+    title overlay lines. Duration matches the audio's length plus a short
+    trailing silence so the next segment doesn't slam in."""
+    if SKIP_EXISTING and out.exists():
+        print(f"[song-{label}] skip (exists)", flush=True)
+        return
+    # Audio duration via ffprobe
+    r = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "csv=p=0", str(audio)],
+        capture_output=True, text=True, check=True,
+    )
+    audio_dur = float(r.stdout.strip())
+    duration = audio_dur + trailing_silence
+
+    chain = ",".join(_drawtext_filter(l) for l in title_lines) if title_lines else "null"
+    vf = f"scale={W}:{H}" + ("," + chain if title_lines else "")
+    cmd = [
+        "ffmpeg", "-y",
+        "-stream_loop", "-1", "-t", str(duration), "-i", str(BLACK_SRC),
+        "-i", str(audio),
+        "-map", "0:v", "-map", "1:a",
+        "-vf", vf,
+        "-r", str(FPS),
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24",
+        "-preset", "ultrafast",
+        "-c:a", "aac", "-b:a", "192k",
+        "-t", str(duration),
+        str(out),
+    ]
+    run(cmd, label=f"song-{label}")
 
 
 def _load_bleeps() -> dict:
@@ -248,6 +307,18 @@ def main() -> None:
     v = SEGS / "01c_hunter_vid.mp4"
     render_vid(PHONE / "VID_20260508_054433020.mp4", 0.0, None, "hunter", v,
                mute_ranges=hunter_mutes)
+    seg_paths.append(v)
+
+    # 01c2 — Hunter beats (earlier same morning, "hope you like these nasty beats")
+    c = SEGS / "01c2_hunter_beats_card.mp4"
+    render_card([
+        Line("earlier that morning…", ELITE, 80, "0xeeeeee", y="h/2-60", start=1.0, duration=10.0),
+        Line("(\"hope you like these nasty beats…\")", ELITE, 44, "0xbbbbbb", y="h/2+60", start=3.0, duration=8.0),
+    ], duration=12.0, out=c, label="hunter-beats-intro")
+    seg_paths.append(c)
+    v = SEGS / "01c2_hunter_beats_vid.mp4"
+    render_vid(HUNTER_BEATS, 0.0, None, "hunter  ·  beats", v,
+               audio_gain=1.8)
     seg_paths.append(v)
 
     # 01d — T.K.
@@ -320,6 +391,103 @@ def main() -> None:
     render_vid(WALGREENS_P2, 0.0, None, "the guy with the dog  ·  may 10  ·  walgreens (cont.)", v2,
                mute_ranges=walg_p2_mutes)
     seg_paths.append(v2)
+
+    # =================== SONGS SECTION ===================
+
+    # 02a — Puddle: Mark's spoken-word intro as text + the song with end-credit
+    # reveal scrolling over it (Busta first, then John's real name + name origin).
+    puddle = SEGS / "02a_puddle.mp4"
+    render_song(
+        PUDDLE_MP3,
+        title_lines=[
+            # Pre-song spoken-word text (Mark's "insane... get out of my membrane")
+            Line("\"insane… get out of my membrane.\"", ELITE, 56, "0xeeeeee", y="h/4-40",
+                 start=2.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+            Line("\"its a pain, its john's pain (even though i said my)\"", ELITE, 50, "0xeeeeee", y="h/4+40",
+                 start=5.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+            Line("\"copesetic strain, on my shallow brain.\"", ELITE, 50, "0xeeeeee", y="h/4+120",
+                 start=8.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+            # End credits — fade in around 2:00 of the 3:51 song, sequential reveal.
+            Line("starring", ELITE, 60, "0xcccccc", y="(h-text_h)/2-200",
+                 start=120.0, fade_in=2.0, fade_out=2.5, duration=12.0),
+            Line("BUSTA RHYMES", BEBAS, 180, "white", y="(h-text_h)/2",
+                 start=123.0, fade_in=2.0, fade_out=2.5, duration=14.0),
+            Line("(john's reason to be, at the moment)", ELITE, 44, "0xbbbbbb", y="h/2+150",
+                 start=126.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+            Line("and", ELITE, 56, "0xcccccc", y="(h-text_h)/2-180",
+                 start=144.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+            Line("THE GUY WITH THE DOG", BEBAS, 130, "white", y="(h-text_h)/2",
+                 start=147.0, fade_in=2.0, fade_out=2.5, duration=14.0),
+            Line("(John Matesowicz)", ELITE, 56, "0xdddddd", y="h/2+120",
+                 start=164.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+            Line("a name his grandfather (or great grandfather) made up", ELITE, 44, "0xbbbbbb", y="h/2-180",
+                 start=180.0, fade_in=2.0, fade_out=2.5, duration=10.0),
+            Line("to be unique.", ELITE, 44, "0xbbbbbb", y="h/2-130",
+                 start=185.0, fade_in=2.0, fade_out=2.5, duration=8.0),
+            Line("It is pronounced", ELITE, 48, "0xcccccc", y="h/2-30",
+                 start=198.0, fade_in=2.0, fade_out=2.5, duration=8.0),
+            Line("Matt - Sock - O - Vits", BEBAS, 110, "white", y="h/2+50",
+                 start=202.0, fade_in=2.0, fade_out=2.5, duration=12.0),
+            Line("(or something like that.)", ELITE, 44, "0xaaaaaa", y="h/2+180",
+                 start=210.0, fade_in=2.0, fade_out=2.5, duration=8.0),
+        ],
+        out=puddle, label="puddle",
+    )
+    seg_paths.append(puddle)
+
+    # 02b — "Some stuff Ob banged out last night"
+    ob_intro = SEGS / "02b_ob_intro_card.mp4"
+    render_card([
+        Line("Some stuff Ob banged out last night.", ELITE, 70, "white", y="(h-text_h)/2",
+             start=1.0, duration=10.0),
+    ], duration=12.0, out=ob_intro, label="ob-intro")
+    seg_paths.append(ob_intro)
+
+    # 02c..02g — Obi tracks. Working dir has 10 mp3s (5 songs × 2 versions).
+    # For the v7 first cut, use the v2 versions only (5 songs).
+    obi_tracks = sorted(p for p in OBIE_DIR.glob("*v2.mp3"))
+    for i, track in enumerate(obi_tracks, start=1):
+        seg = SEGS / f"02c_ob_track{i:02d}.mp4"
+        overlays: list[Line] = []
+        # Drop the meta-text overlays partway through the third track.
+        if i == 3:
+            overlays.append(Line(
+                "Well, actually it's been a couple days now…",
+                ELITE, 50, "0xdddddd", y="h/4",
+                start=8.0, fade_in=2.0, fade_out=2.5, duration=12.0,
+            ))
+            overlays.append(Line(
+                "Claude Code wasn't as fast an editor as I'd hoped, lol.",
+                ELITE, 46, "0xbbbbbb", y="h/4+70",
+                start=14.0, fade_in=2.0, fade_out=2.5, duration=12.0,
+            ))
+        render_song(track, overlays, seg, label=f"ob-t{i:02d}")
+        seg_paths.append(seg)
+
+    # 03a — "John wrote this one the other day…"
+    hgb_intro = SEGS / "03a_hgb_intro_card.mp4"
+    render_card([
+        Line("John wrote this one the other day", ELITE, 56, "0xdddddd", y="h/2-80",
+             start=1.0, duration=12.0),
+        Line("about so many misguided kids on the street…", ELITE, 56, "0xdddddd", y="h/2",
+             start=3.0, duration=12.0),
+    ], duration=14.0, out=hgb_intro, label="hgb-intro")
+    seg_paths.append(hgb_intro)
+
+    # 03b — HGB
+    hgb = SEGS / "03b_hgb.mp4"
+    render_song(
+        HGB_MP3,
+        title_lines=[
+            # Title/artist overlay near the end of the song.
+            Line("\"Half Grown Boy\"", BEBAS, 110, "white", y="(h-text_h)/2-40",
+                 start=230.0, fade_in=2.0, fade_out=2.5, duration=18.0),
+            Line("by the guy with the dog", ELITE, 56, "0xdddddd", y="h/2+60",
+                 start=234.0, fade_in=2.0, fade_out=2.5, duration=14.0),
+        ],
+        out=hgb, label="hgb",
+    )
+    seg_paths.append(hgb)
 
     # Concat
     list_file = V7 / "cold_open_concat.txt"
