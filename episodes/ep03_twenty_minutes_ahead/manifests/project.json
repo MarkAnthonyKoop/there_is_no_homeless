@@ -1,0 +1,42 @@
+{
+ "project_id": "tinh-ch01-ep03-twenty-minutes-ahead-v1_0",
+ "series": "There Is No Homeless",
+ "chapter": "Chapter One - Street Life",
+ "episode": "Episode Three - Twenty Minutes Ahead",
+ "runtime_target_seconds": 1230,
+ "runtime_target_display": "20:30 including credits and post-credit tag",
+ "revision": "v1.0 - Writers-room draft (authored 2026-07-30 by movie_studio multi-agent workflow)",
+ "master": {
+  "width": 3840,
+  "height": 2160,
+  "aspect_ratio": "16:9",
+  "fps": 24,
+  "audio_sample_rate": 48000
+ },
+ "approval_gates": [
+  {
+   "id": "G1",
+   "after": "identity_and_location_anchors",
+   "reason": "lock characters and new Greenbelt locations before video generation"
+  },
+  {
+   "id": "G2",
+   "after": "audio_table_read",
+   "reason": "pacing + differentiation before animatic"
+  },
+  {
+   "id": "G3",
+   "after": "music_locked_animatic",
+   "reason": "lock 20:30 timing before hero generation"
+  },
+  {
+   "id": "G4",
+   "after": "rough_cut",
+   "reason": "continuity, ethics, identity, lyric and emotional review"
+  }
+ ],
+ "source_contract": {
+  "episode_one_transcript": "../..//..//music_studio/bellweather_ep2/reference/EP1_TRANSCRIPT_SOURCE.txt",
+  "episode_two_package": "../../../music_studio/bellweather_ep2"
+ }
+}

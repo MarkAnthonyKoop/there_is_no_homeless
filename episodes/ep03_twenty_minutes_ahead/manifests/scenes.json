@@ -1,0 +1,132 @@
+[
+ {
+  "scene_id": "S01",
+  "title": "Cold Open: The Muffin He Left",
+  "start_seconds": 0,
+  "duration_seconds": 75,
+  "palette": "Pre-dawn blue-gray woods, cold ash and dew silver, one warm amber pool on the folded bandages and Tupperware muffin",
+  "music": "how-i-wish - near-instrumental, distant and hollow, melody carried under the empty space where John slept",
+  "summary": "Dawn at Wiley's woods camp. Obi wakes wrecked from Bitter Dividend. John is gone \u2014 but half his bandages are left folded for Obi's strap-wounds, beside a Tupperware with a single muffin. Wiley: 'he left you breakfast, man.' Care even in leaving. Title card.",
+  "end_seconds": 75
+ },
+ {
+  "scene_id": "S02",
+  "title": "The Receipt and the Wristband",
+  "start_seconds": 75,
+  "duration_seconds": 95,
+  "palette": "Flat morning overcast, greasy paper-bag tan, receipt-thermal white, muted denim and camp canvas",
+  "music": "how-i-wish - sparse acoustic fragments, stopping dead whenever the timestamp is read aloud",
+  "summary": "Seth arrives with the P. Terry's receipt and hospital wristband, both stamped twenty minutes in the future, Integrity 100%. Obi insists on leading a search he can't lead and refuses help. Seth's flat skepticism ('they're not that interesting, dude') vs. the stamp that bothers him. The Twenty-Minute Log begins on the greasy bag. Mark films everything \u2014 camera arc step 1.",
+  "end_seconds": 170
+ },
+ {
+  "scene_id": "S03",
+  "title": "The Rumor Telegraph",
+  "start_seconds": 170,
+  "duration_seconds": 85,
+  "palette": "Corridor daylight, sun-bleached asphalt gray, storefront signage color pops, heat-haze white",
+  "music": "starts - full-band ignition hit on the act break, then cat4 - sly walking-bass suspicion under the montage",
+  "summary": "Montage west-to-east down the corridor. The contradiction machine: John's hospitalized / got a maintenance job / went to Round Rock, which everyone agrees is worse than missing. Log entries accumulate on the degrading bag. The search has become official.",
+  "end_seconds": 255
+ },
+ {
+  "scene_id": "S04",
+  "title": "Norm's Camp at the Sterzing Box",
+  "start_seconds": 255,
+  "duration_seconds": 95,
+  "palette": "Electrical-box industrial green, tarp blue, extension-cord orange, late-morning contrast shadows",
+  "music": "cat4 - stripped to percussion and muted stabs, sketchy-approach treatment",
+  "summary": "The crew works Norm's electrical-box camp. Infection-source thread touched, not resolved; one Sadi-finger beat silences Truth exactly once. The reframing clue: John was here asking Norm how HE got treated. He isn't fleeing \u2014 he's questing alone. Log entry: 'Norm sneezed. Circle it.'",
+  "end_seconds": 350
+ },
+ {
+  "scene_id": "S05",
+  "title": "Hospital Stonewall",
+  "start_seconds": 350,
+  "duration_seconds": 115,
+  "palette": "Fluorescent institutional white-green, laminate beige, privacy-glass frost, one red EXIT sign",
+  "music": "hey-joe - protest-blues shuffle against the privacy desk, with a diegetic cieeffoeeyy fragment as the A.T.T. improved-hold-music",
+  "summary": "Full bureaucracy kit: 'Are you family?' / 'I'm his... documentarian.' / '...Sir.' The A.T.T. phone-tree ('WE IMPROVE WHAT YOU MEANT') improves the crew's messages back at them; the pharmacist can neither confirm nor deny that a Walgreens exists. Mark leaves the camera in the truck \u2014 this scene exists in-world but not in his footage. Midpoint turn: John checked in, heard 'we don't know if you're contagious,' and walked out AMA. His motive lands.",
+  "end_seconds": 465
+ },
+ {
+  "scene_id": "S06",
+  "title": "Beat: Help Without Forgiveness",
+  "start_seconds": 465,
+  "duration_seconds": 25,
+  "palette": "Parking-lot dusk gray, sodium-lamp amber edge, two figures in negative space",
+  "music": "how-i-wish - single guitar figure, then silence for the ask itself",
+  "summary": "The short beat: Obi, neck feathers down, asks Hunter to check his reasoning. Help granted, forgiveness explicitly withheld. The apology stays incomplete and the scene is better for it.",
+  "end_seconds": 490
+ },
+ {
+  "scene_id": "S07",
+  "title": "The Twenty-Minute Stakeout",
+  "start_seconds": 490,
+  "duration_seconds": 120,
+  "palette": "Golden-hour picnic-table orange fading to teal dusk, translucent grease-bag glow held up to the light",
+  "music": "cat4 - tense held-breath reduction, dropping out entirely for the Bellweather kettle beat",
+  "summary": "Five people stare at an empty picnic table while Seth narrates 'any second now.' The theory half-works (fresh traces, missed him by minutes) and half-fails, exactly once each \u2014 Bellweather ambiguity locked. On the walk out, the single Bellweather cameo: descaling a kettle on the creek bank. 'The kettle doesn't know either.' She never offers tea.",
+  "end_seconds": 610
+ },
+ {
+  "scene_id": "S08",
+  "title": "The Footage Scrub",
+  "start_seconds": 610,
+  "duration_seconds": 110,
+  "palette": "Laptop-screen blue on a dark truck cab, timeline-scrubber red, monitor glow on Mark's glasses",
+  "music": "fog - slow existential build with one quoted instrumental puddle phrase inside it, Ep1 callback",
+  "summary": "Night. Mark scrubs his own exploitation reel, watching himself set the camera down too late, over and over \u2014 camera arc step 2, half-filming himself watching. A bell rings, faint, source-less; he sets the camera down before the moment for the first time in his life. Twenty minutes later he finds the tell: 'soaked in bleach, baby' \u2014 the bleach foot-soak riff means an upstream spring.",
+  "end_seconds": 720
+ },
+ {
+  "scene_id": "S09",
+  "title": "Upstream: Into New Territory",
+  "start_seconds": 720,
+  "duration_seconds": 115,
+  "palette": "Limestone white and live-oak green, graffiti-wall color burst at Gus Fruh, bone-dry creek-bed chalk, no skyline",
+  "music": "starts - reprise as patient trail-walking pulse, dry-mineral percussion treatment",
+  "summary": "The named route by land with Wiley \u2014 Gus Fruh's graffiti wall, false-find at Twin Falls, Sculpture Falls \u2014 while TK poles the raft up the waterless creek bed ('River gets a vote.' 'There's no river, man.' 'Unanimous, then.'). Wiley's gospel wobble: 'I go to the woods to hear myself, man. He went to stop.' Documentary lenses on limestone; the creek's just introverted.",
+  "end_seconds": 835
+ },
+ {
+  "scene_id": "S10",
+  "title": "The Seep Pool",
+  "start_seconds": 835,
+  "duration_seconds": 105,
+  "palette": "Bleach-white spring water, cool shade under the Hill of Life, John's skin tones pale against wet limestone",
+  "music": "how-i-wish - full statement at last, the search motif resolving onto the found man",
+  "summary": "John at the seep pool below the Hill of Life, feet in spring water, gallows engine at full throttle \u2014 'morphine and monkey pox,' tangent-stacking into Drew Carey mid-tears. The rumor line lands: 'you guys care enough about me to make up a fucking rumor?' His contagion confession \u2014 exile-as-protection \u2014 out loud at last.",
+  "end_seconds": 940
+ },
+ {
+  "scene_id": "S11",
+  "title": "The Climax of Touch",
+  "start_seconds": 940,
+  "duration_seconds": 120,
+  "palette": "Warming afternoon gold breaking into the shade, bandage white, dry-muffin brown as the warmest color on screen",
+  "music": "my-muffin-is-dry - full vocal cue under the hand-take, 'I'm scared, I'm stoned, I'm still in the fight'",
+  "summary": "Obi crosses the distance and takes John's bandaged hand knowing what it might cost. MRSA truth dramatized \u2014 treatable, doxycycline works, precautions suffice, not poison \u2014 via John reciting his allergy list to the on-call resident in full Drew Carey cadence, laughing and crying in one take. Mark hands John's own line back: 'maybe you need to care about yourself more.' The Tupperware surfaces from Obi's pack \u2014 the muffin, carried the whole search, genuinely dry. Camera stays in the truck.",
+  "end_seconds": 1060
+ },
+ {
+  "scene_id": "S12",
+  "title": "The Carry Home / Coda",
+  "start_seconds": 1060,
+  "duration_seconds": 110,
+  "palette": "Warm rain silver-gold on the trail for thirty seconds only, then evening hospital-room lamplight, IV-bag translucence",
+  "music": "lance-aleks-dancing-in-the-rain - thirty seconds only, cut clean before euphoria overclaims; then room tone and a single faint bell",
+  "summary": "The group carries John as John carried Obi; Obi lets Hunter steady him. Obi's near-credit: 'The sky drew it. Mark held the pen adjacent.' One paid-for shaft of warm rain. Coda: hospital room, evening \u2014 John's IV bag drips in perfect 4/4. Mark notices. Mark does not film it. A bell rings somewhere, faint. The weather is one degree kinder. No answers about Bellweather.",
+  "end_seconds": 1170
+ },
+ {
+  "scene_id": "S13",
+  "title": "Credits + Post-Credit Tag: The Monkey Tree",
+  "start_seconds": 1170,
+  "duration_seconds": 60,
+  "palette": "Credits on black, then dusk green-black off Azie Morton, one small brass bell catching the last light",
+  "music": "gator2 - fragment as a low sting under the bell, silence before and after",
+  "summary": "Credits roll. Post-credit tag: behind Barton Springs Pool's south side, first-ever glimpse of the Monkey Tree \u2014 a single small bell hung in its branches. No wind. It rings once. Documentary fact card: hydrologists trace Barton Springs' water with dye \u2014 rain that falls miles away surfaces here days later. Springs don't predict rain; they live downstream of it.",
+  "end_seconds": 1230
+ }
+]

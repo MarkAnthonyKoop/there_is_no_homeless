@@ -1,0 +1,122 @@
+[
+  {
+    "id": "seth_tony_mark",
+    "display_name": "Seth / Tony / Mark",
+    "role": "Audience surrogate, narrator, caring accidental complication",
+    "visual_anchor": "Graphite 2D stick figure using approved photo silhouette: long gray-blond hair, six-inch gray beard, rectangular glasses, white shirt, expressive eyebrows and line weight. Name lower-third morphs with confidence and embarrassment.",
+    "behavior": "Asks good questions badly; reaches for camera when uncertain; giggles after dangerous mistakes; stops filming when presence matters more.",
+    "voice": "Warm, curious, quick, self-mocking; capable of sudden philosophical precision."
+  },
+  {
+    "id": "wiley",
+    "display_name": "Wiley",
+    "role": "Opening thesis and practical paradox",
+    "visual_anchor": "Grounded Episode One likeness from source frames; practical clothes; positions body to see both road and trees.",
+    "behavior": "Rejects overanalysis; speaks from lived comparison between apartment and woods.",
+    "voice": "Plainspoken, dry, practical, with accidental philosophy."
+  },
+  {
+    "id": "john",
+    "display_name": "John",
+    "role": "Emotional heart and Episode Three mystery",
+    "visual_anchor": "Episode One likeness, bandaged hands and forearms, tired bright eyes, Buster nearby. Skin condition shown respectfully and non-grotesquely except medically relevant detail.",
+    "behavior": "Flexes hand when unobserved; uses profanity, pop culture and grotesque jokes to stay present; cares for others while hurting.",
+    "voice": "Fast, funny, specific, profane, digressive; humor is an instrument, not denial."
+  },
+  {
+    "id": "buster",
+    "display_name": "Buster",
+    "role": "John's quiet witness and final messenger",
+    "visual_anchor": "Use Episode One dog reference frames; sleepy, heavy stillness, expressive ears.",
+    "behavior": "Sleeps through chaos; alerts only when something truly matters.",
+    "voice": "Nonverbal."
+  },
+  {
+    "id": "obi",
+    "display_name": "Obi",
+    "role": "Plot engine, burden carrier, loving genius with pride",
+    "visual_anchor": "Episode One likeness and approved frames; lean kinetic body, bright attentive eyes, symbolic feather/wing language. No demon double.",
+    "behavior": "Serves compulsively; bristles at any slight to intelligence; yells or overexplains, then often does the tender thing. Neck feathers rise with wounded pride.",
+    "voice": "Fast, precise, highly verbal, funny, occasionally insulting, then awkwardly honest."
+  },
+  {
+    "id": "hunter",
+    "display_name": "Hunter",
+    "role": "Pattern detector and corrupted-message victim",
+    "visual_anchor": "Episode One / Street Life source frames; active fingers tapping surfaces, alert posture.",
+    "behavior": "Builds systems aloud; hears beats in infrastructure; overconnects patterns under pressure.",
+    "voice": "Rhythmic, systemic, associative, increasingly compressed when threatened."
+  },
+  {
+    "id": "richard",
+    "display_name": "Richard",
+    "role": "Material philosopher and painter",
+    "visual_anchor": "Episode One source frames; painterly hands, clothes carrying old color, watches surfaces before people.",
+    "behavior": "Paints over finished work; meaning emerges after action.",
+    "voice": "Visual, tentative, discovers sentence while speaking."
+  },
+  {
+    "id": "tk",
+    "display_name": "TK",
+    "role": "Kinetic folk engineer and comic lateral thinker",
+    "visual_anchor": "Episode One source frames; sideways grin, party mat/raft, crutch steering, improvised hardware.",
+    "behavior": "Adapts before defining the problem; tests steering with tiny hand motions.",
+    "voice": "Mechanical, playful, confident; repair manual written by a river."
+  },
+  {
+    "id": "truth",
+    "display_name": "Truth",
+    "role": "Future arc seed: overclocked perception without conversational brakes",
+    "visual_anchor": "Use real reference frames when available; stylish, striking young Black man; Parallax kettle visible mainly in reflections.",
+    "behavior": "Never leaves silence for entry until Sadi signals; physically still while speech outruns him.",
+    "voice": "Brilliant torrent, metaphysical certainty, occasional devastating perception."
+  },
+  {
+    "id": "norm",
+    "display_name": "Norm",
+    "role": "Grounded infrastructure and calm contradiction",
+    "visual_anchor": "Real reference frames when available; seated by utility box with impossible cables.",
+    "behavior": "Repairs while others theorize; corrects without aggression.",
+    "voice": "Sweet, calm, literal, economical."
+  },
+  {
+    "id": "sadi",
+    "display_name": "Sadi",
+    "role": "Compression, timing and social intelligence",
+    "visual_anchor": "Real reference frames when available; blanket, still gaze, minimal movement.",
+    "behavior": "Waits until one line can replace fifty; can stop Truth with one finger.",
+    "voice": "Sparse, dry, exact."
+  },
+  {
+    "id": "harley",
+    "display_name": "Harley",
+    "role": "Moral intelligence, dependable labor and fierce loyalty",
+    "visual_anchor": "Street Life source frames; short stabbing finger motions when speaking, gentle hands when helping.",
+    "behavior": "Works without spectacle; rarely raises voice; checks straps and people.",
+    "voice": "Concrete, emphatic, story-based, affectionate."
+  },
+  {
+    "id": "whiny",
+    "display_name": "Whiny",
+    "role": "Recurring leaf-blower nuisance and future invention catalyst",
+    "visual_anchor": "Initially show only nozzle, vibration, leaves and partial silhouette.",
+    "behavior": "Approaches every NO LBs sign as a negotiation.",
+    "voice": "Mostly mechanical nasal whine in Episode Two."
+  },
+  {
+    "id": "madam_bellweather",
+    "display_name": "Madam Bellweather",
+    "role": "Tea purveyor and neutral poet of consequences",
+    "visual_anchor": "Ageless, weather-map dress, hospital bands, bus transfers, neither villain nor savior.",
+    "behavior": "Never forces a cup; states costs clearly enough to be ignored.",
+    "voice": "Lyrical market liturgy."
+  },
+  {
+    "id": "the_law",
+    "display_name": "The Law",
+    "role": "Institutional constraint made visible",
+    "visual_anchor": "Tall figure of badges, clipboards, cones, rules and fine print; polite, not mustache-twirling.",
+    "behavior": "Reframes displacement as safety and cleanup.",
+    "voice": "Administrative paradox."
+  }
+]
